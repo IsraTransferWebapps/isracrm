@@ -1,18 +1,19 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import type { ClientType, OnboardingStep } from '@/types/database';
 
 /**
  * Create a new onboarding client record and session after Supabase Auth signup.
- * Called from the registration page after successful auth.signUp().
+ * Uses service role to bypass RLS — the user's auth session may not be
+ * propagated to the server action immediately after signUp().
  */
 export async function createOnboardingClient(
   userId: string,
   clientType: ClientType,
   email: string
 ): Promise<{ clientId: string; sessionId: string }> {
-  const supabase = await createClient();
+  const supabase = createServiceClient();
 
   // Create the client record
   const { data: client, error: clientError } = await supabase
