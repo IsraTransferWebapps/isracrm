@@ -8,7 +8,7 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -45,75 +45,54 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* IsraTransfer brand tokens */
+  --color-brand-cyan: #01A0FF;
+  --color-brand-royal: #094BCC;
+  --color-brand-deep: #082F7B;
+  --color-brand-dark: #003CAA;
+  --color-brand-accent: #B8E4FF;
+  --color-brand-navy: #182A4E;
+  --color-brand-surface: #F4F5F7;
 }
 
+/* ─── IsraTransfer Light Theme ───
+ *  Clean, airy light backgrounds with #01A0FF as primary accent.
+ *  Trust-oriented fintech aesthetic — spacious and professional.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.58 0.22 27);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
+  --background: #ffffff;
+  --foreground: #253859;
+  --card: #ffffff;
+  --card-foreground: #253859;
+  --popover: #ffffff;
+  --popover-foreground: #253859;
+  --primary: #01A0FF;
+  --primary-foreground: #ffffff;
+  --secondary: #F4F5F7;
+  --secondary-foreground: #42526E;
+  --muted: #F4F5F7;
+  --muted-foreground: #717D93;
+  --accent: #F0F7FF;
+  --accent-foreground: #253859;
+  --destructive: #dc2626;
+  --border: #E2E8F0;
+  --input: #F4F5F7;
+  --ring: #01A0FF;
+  --chart-1: #01A0FF;
+  --chart-2: #10b981;
+  --chart-3: #f59e0b;
+  --chart-4: #8b5cf6;
+  --chart-5: #06b6d4;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.87 0.00 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.809 0.105 251.813);
-  --chart-2: oklch(0.623 0.214 259.815);
-  --chart-3: oklch(0.546 0.245 262.881);
-  --chart-4: oklch(0.488 0.243 264.376);
-  --chart-5: oklch(0.424 0.199 265.638);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: #FAFBFC;
+  --sidebar-foreground: #42526E;
+  --sidebar-primary: #01A0FF;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #F0F7FF;
+  --sidebar-accent-foreground: #253859;
+  --sidebar-border: #E2E8F0;
+  --sidebar-ring: #01A0FF;
 }
 
 @layer base {
@@ -126,4 +105,126 @@
   html {
     @apply font-sans;
   }
+}
+
+/* ─── Refined Scrollbar (light) ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* ─── Hide scrollbar utility ─── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Elevated Card Style ─── */
+.glass-card {
+  background: #ffffff;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+.glass-card-hover {
+  transition: all 0.2s ease;
+}
+.glass-card-hover:hover {
+  border-color: #CBD5E1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* ─── Subtle brand highlight ─── */
+.brand-glow {
+  box-shadow: 0 1px 3px rgba(1, 160, 255, 0.08), 0 0 0 1px rgba(1, 160, 255, 0.06);
+}
+
+.brand-glow-sm {
+  box-shadow: 0 0 0 1px rgba(1, 160, 255, 0.08);
+}
+
+/* ─── Premium badge pill style ─── */
+.badge-pill {
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 2px 10px;
+  line-height: 1.6;
+}
+
+/* ─── Table row hover (light) ─── */
+.table-row-hover {
+  transition: background-color 0.15s ease;
+}
+.table-row-hover:hover {
+  background-color: #F8FAFC;
+}
+
+/* ─── Section heading style ─── */
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94A3B8;
+}
+
+/* ─── Pulse animation for loading skeletons ─── */
+@keyframes brand-pulse {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 1; }
+}
+.skeleton-brand {
+  animation: brand-pulse 2s ease-in-out infinite;
+  background: linear-gradient(90deg, #F1F5F9, #E2E8F0, #F1F5F9);
+  background-size: 200% 100%;
+}
+
+/* ─── Login background (light) ─── */
+.login-bg {
+  background:
+    radial-gradient(ellipse at 20% 50%, rgba(1, 160, 255, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(9, 75, 204, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(8, 47, 123, 0.03) 0%, transparent 50%),
+    #ffffff;
+}
+
+/* ─── Focus ring using brand color ─── */
+*:focus-visible {
+  outline: 2px solid rgba(1, 160, 255, 0.5);
+  outline-offset: 2px;
+}
+
+/* ─── Stat card gradient backgrounds (light) ─── */
+.stat-card-blue {
+  background: linear-gradient(135deg, rgba(1, 160, 255, 0.06), rgba(1, 160, 255, 0.02));
+}
+.stat-card-emerald {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.06), rgba(16, 185, 129, 0.02));
+}
+.stat-card-amber {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.06), rgba(245, 158, 11, 0.02));
+}
+.stat-card-red {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.06), rgba(239, 68, 68, 0.02));
+}
+.stat-card-purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.06), rgba(139, 92, 246, 0.02));
+}
+.stat-card-cyan {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.06), rgba(6, 182, 212, 0.02));
 }
