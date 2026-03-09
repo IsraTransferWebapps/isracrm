@@ -63,7 +63,7 @@ export function TopBar() {
 
         {/* Notification bell */}
         <Tooltip>
-          <TooltipTrigger>
+          <TooltipTrigger render={<span className="inline-flex" />}>
             <Button
               variant="ghost"
               size="icon"

@@ -174,7 +174,7 @@ export function Sidebar() {
           if (collapsed) {
             return (
               <Tooltip key={item.href}>
-                <TooltipTrigger>{linkContent}</TooltipTrigger>
+                <TooltipTrigger render={<span />}>{linkContent}</TooltipTrigger>
                 <TooltipContent side="right" className="bg-white border-[#E2E8F0] text-[#253859] shadow-lg">
                   <p>{item.label}</p>
                 </TooltipContent>
@@ -206,7 +206,7 @@ export function Sidebar() {
               </p>
             </div>
             <Tooltip>
-              <TooltipTrigger>
+              <TooltipTrigger render={<span className="inline-flex" />}>
                 <Button
                   variant="ghost"
                   size="icon"
@@ -223,7 +223,7 @@ export function Sidebar() {
           </div>
         ) : (
           <Tooltip>
-            <TooltipTrigger>
+            <TooltipTrigger render={<span className="inline-flex" />}>
               <Button
                 variant="ghost"
                 size="icon"
