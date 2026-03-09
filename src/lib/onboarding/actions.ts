@@ -12,62 +12,66 @@ export async function createOnboardingClient(
   userId: string,
   clientType: ClientType,
   email: string
-): Promise<{ clientId: string; sessionId: string }> {
-  const supabase = createServiceClient();
+): Promise<{ success: true; clientId: string; sessionId: string } | { success: false; error: string }> {
+  try {
+    const supabase = createServiceClient();
 
-  // Create the client record
-  const { data: client, error: clientError } = await supabase
-    .from('clients')
-    .insert({
-      client_type: clientType,
-      status: 'prospect',
-      auth_user_id: userId,
-      kyc_status: 'pending',
-      source_of_funds_status: 'not_submitted',
-    })
-    .select('id')
-    .single();
+    // Create the client record
+    const { data: client, error: clientError } = await supabase
+      .from('clients')
+      .insert({
+        client_type: clientType,
+        status: 'prospect',
+        auth_user_id: userId,
+        kyc_status: 'pending',
+        source_of_funds_status: 'not_submitted',
+      })
+      .select('id')
+      .single();
 
-  if (clientError) throw new Error(`Failed to create client: ${clientError.message}`);
+    if (clientError) return { success: false, error: `Failed to create client: ${clientError.message}` };
 
-  // Create the detail row depending on client type
-  if (clientType === 'corporate') {
-    const { error: corpError } = await supabase
-      .from('corporate_details')
-      .insert({ client_id: client.id, company_name: '' });
+    // Create the detail row depending on client type
+    if (clientType === 'corporate') {
+      const { error: corpError } = await supabase
+        .from('corporate_details')
+        .insert({ client_id: client.id, company_name: '' });
 
-    if (corpError) throw new Error(`Failed to create corporate details: ${corpError.message}`);
-  } else {
-    const { error: indError } = await supabase
-      .from('individual_details')
+      if (corpError) return { success: false, error: `Failed to create corporate details: ${corpError.message}` };
+    } else {
+      const { error: indError } = await supabase
+        .from('individual_details')
+        .insert({
+          client_id: client.id,
+          first_name: '',
+          last_name: '',
+          email_primary: email,
+        });
+
+      if (indError) return { success: false, error: `Failed to create individual details: ${indError.message}` };
+    }
+
+    // Create the onboarding session
+    const { data: session, error: sessionError } = await supabase
+      .from('onboarding_sessions')
       .insert({
         client_id: client.id,
-        first_name: '',
-        last_name: '',
-        email_primary: email,
-      });
+        auth_user_id: userId,
+        client_type: clientType,
+        current_step: 'kyc' as OnboardingStep,
+        status: 'in_progress',
+        gdpr_consent: true,
+        gdpr_consent_date: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
 
-    if (indError) throw new Error(`Failed to create individual details: ${indError.message}`);
+    if (sessionError) return { success: false, error: `Failed to create session: ${sessionError.message}` };
+
+    return { success: true, clientId: client.id, sessionId: session.id };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Unknown error during account setup' };
   }
-
-  // Create the onboarding session
-  const { data: session, error: sessionError } = await supabase
-    .from('onboarding_sessions')
-    .insert({
-      client_id: client.id,
-      auth_user_id: userId,
-      client_type: clientType,
-      current_step: 'kyc' as OnboardingStep,
-      status: 'in_progress',
-      gdpr_consent: true,
-      gdpr_consent_date: new Date().toISOString(),
-    })
-    .select('id')
-    .single();
-
-  if (sessionError) throw new Error(`Failed to create session: ${sessionError.message}`);
-
-  return { clientId: client.id, sessionId: session.id };
 }
 
 /**

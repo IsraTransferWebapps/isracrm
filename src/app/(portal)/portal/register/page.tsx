@@ -21,14 +21,8 @@ import Link from 'next/link';
 const CLIENT_TYPE_OPTIONS: { value: ClientType; label: string; description: string; icon: React.ReactNode }[] = [
   {
     value: 'individual_uk',
-    label: 'UK Individual',
-    description: 'UK resident or national',
-    icon: <User className="w-5 h-5" />,
-  },
-  {
-    value: 'individual_israeli',
-    label: 'Israeli Individual',
-    description: 'Israeli resident or national',
+    label: 'Individual',
+    description: 'Personal account for an individual',
     icon: <User className="w-5 h-5" />,
   },
   {
@@ -70,8 +64,8 @@ export default function RegisterPage() {
     setError(null);
 
     try {
-      // Sign up with Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // Sign up with Supabase Auth (with 15s timeout to prevent hanging)
+      const signUpPromise = supabase.auth.signUp({
         email: data.email,
         password: data.password,
         options: {
@@ -82,11 +76,25 @@ export default function RegisterPage() {
         },
       });
 
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Registration timed out. Please try again.')), 15000)
+      );
+
+      const { data: authData, error: authError } = await Promise.race([signUpPromise, timeoutPromise]);
+
       if (authError) throw new Error(authError.message);
       if (!authData.user) throw new Error('Registration failed. Please try again.');
 
+      // If identities is empty, the email is already registered
+      if (authData.user.identities && authData.user.identities.length === 0) {
+        throw new Error('An account with this email already exists. Please sign in instead.');
+      }
+
       // Create client and onboarding session
-      await createOnboardingClient(authData.user.id, data.client_type, data.email);
+      const result = await createOnboardingClient(authData.user.id, data.client_type, data.email);
+      if (!result.success) {
+        throw new Error(result.error);
+      }
 
       // Show MFA stub
       setShowMfa(true);
@@ -233,7 +241,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-xs text-[#94A3B8]">
           Already have an account?{' '}
-          <Link href="/onboard/login" className="text-[#01A0FF] underline">
+          <Link href="/portal/login" className="text-[#01A0FF] underline">
             Sign in
           </Link>
         </p>
@@ -244,7 +252,7 @@ export default function RegisterPage() {
         open={showMfa}
         onContinue={() => {
           setShowMfa(false);
-          router.push('/onboard');
+          router.push('/portal/onboard');
         }}
       />
     </div>

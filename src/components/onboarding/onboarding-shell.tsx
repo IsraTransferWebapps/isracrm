@@ -29,7 +29,7 @@ export function OnboardingShell({ currentStep, title, subtitle, children }: Onbo
   const { showWarning, dismissWarning } = useInactivityTimeout(
     async () => {
       await signOut();
-      router.push('/onboard/login');
+      router.push('/portal/login');
     },
     15 * 60 * 1000, // 15 minutes
     60 * 1000 // 1 minute warning

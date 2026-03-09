@@ -123,7 +123,7 @@ export function KycIndividualForm({ sessionId, clientId, stepData }: Props) {
 
       // Advance to next step
       await updateOnboardingStep(sessionId, 'beneficiaries', { kyc: data });
-      router.push('/onboard/beneficiaries');
+      router.push('/portal/onboard/beneficiaries');
     } catch (err) {
       console.error('KYC save failed:', err);
       setSubmitting(false);

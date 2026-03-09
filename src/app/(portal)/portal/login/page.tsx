@@ -34,7 +34,7 @@ export default function OnboardLoginPage() {
       return;
     }
 
-    router.push('/onboard');
+    router.push('/portal/onboard');
   };
 
   return (
@@ -91,7 +91,7 @@ export default function OnboardLoginPage() {
 
         <p className="text-center text-xs text-[#94A3B8]">
           Don&apos;t have an account?{' '}
-          <Link href="/onboard/register" className="text-[#01A0FF] underline">
+          <Link href="/portal/register" className="text-[#01A0FF] underline">
             Register
           </Link>
         </p>

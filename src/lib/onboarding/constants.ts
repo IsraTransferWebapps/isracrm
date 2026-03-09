@@ -9,18 +9,18 @@ export const ONBOARDING_STEPS: {
   { key: 'kyc', label: 'KYC Details', number: 1 },
   { key: 'beneficiaries', label: 'Beneficiaries', number: 2 },
   { key: 'fatca', label: 'Tax Declaration', number: 3 },
-  { key: 'documents', label: 'Documents', number: 4 },
+  { key: 'documents', label: 'Identity', number: 4 },
 ];
 
 // Maps step to route for navigation
 export const STEP_ROUTES: Record<OnboardingStep, string> = {
-  client_type: '/onboard/register',
-  kyc: '/onboard/kyc',
-  beneficiaries: '/onboard/beneficiaries',
-  fatca: '/onboard/fatca',
-  documents: '/onboard/documents',
-  review: '/onboard/review',
-  submitted: '/onboard/confirmation',
+  client_type: '/portal/register',
+  kyc: '/portal/onboard/kyc',
+  beneficiaries: '/portal/onboard/beneficiaries',
+  fatca: '/portal/onboard/fatca',
+  documents: '/portal/onboard/documents',
+  review: '/portal/onboard/review',
+  submitted: '/portal/onboard/confirmation',
 };
 
 export const SOURCE_OF_FUNDS_OPTIONS = [

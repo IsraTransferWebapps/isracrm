@@ -1,8 +1,9 @@
 'use client';
 
 import { useUser } from '@/hooks/use-user';
-import { ROLE_LABELS } from '@/lib/roles';
-import { User, Shield } from 'lucide-react';
+import { ROLE_LABELS, canManageOnboardingConfig } from '@/lib/roles';
+import { User, Shield, FileText, ChevronRight } from 'lucide-react';
+import Link from 'next/link';
 
 export default function SettingsPage() {
   const { profile, role } = useUser();
@@ -55,6 +56,28 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
+
+      {/* Onboarding Forms — management only */}
+      {canManageOnboardingConfig(role) && (
+        <Link href="/settings/onboarding-forms" className="block">
+          <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm hover:border-[#01A0FF] hover:shadow-md transition-all group">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="h-7 w-7 rounded-lg bg-[#EFF6FF] flex items-center justify-center group-hover:bg-[#01A0FF]/10 transition-colors">
+                  <FileText className="h-3.5 w-3.5 text-[#01A0FF]" />
+                </div>
+                <div>
+                  <h2 className="text-[13px] font-semibold text-[#253859] group-hover:text-[#01A0FF] transition-colors">Onboarding Forms</h2>
+                  <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                    Configure fields, sections, and validation for client onboarding forms
+                  </p>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-[#94A3B8] group-hover:text-[#01A0FF] transition-colors" />
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* System Info */}
       <div className="rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm">

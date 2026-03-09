@@ -48,7 +48,7 @@ function BeneficiariesContent() {
     if (!session || beneficiaries.length === 0) return;
     setSubmitting(true);
     await updateOnboardingStep(session.id, 'fatca');
-    router.push('/onboard/fatca');
+    router.push('/portal/onboard/fatca');
   };
 
   if (authLoading || loadingData) {

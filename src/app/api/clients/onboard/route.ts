@@ -91,25 +91,17 @@ export async function POST() {
     errors.push('FATCA/CRS self-certification is required');
   }
 
-  // 4. Required documents
-  const { data: docs } = await supabase
-    .from('kyc_documents')
-    .select('document_type')
+  // 4. Identity verification (Didit)
+  const { data: verification } = await supabase
+    .from('identity_verifications')
+    .select('status, aml_hit')
     .eq('client_id', clientId)
-    .is('deleted_at', null);
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const uploadedTypes = new Set((docs || []).map((d) => d.document_type));
-
-  if (clientType === 'corporate') {
-    const requiredCorp = ['certificate_of_incorporation', 'company_registration', 'proof_of_address'];
-    for (const t of requiredCorp) {
-      if (!uploadedTypes.has(t)) errors.push(`Missing required document: ${t}`);
-    }
-  } else {
-    const requiredInd = ['passport', 'proof_of_address'];
-    for (const t of requiredInd) {
-      if (!uploadedTypes.has(t)) errors.push(`Missing required document: ${t}`);
-    }
+  if (!verification || verification.status !== 'completed') {
+    errors.push('Identity verification is required and must be completed');
   }
 
   // Return errors if validation fails
@@ -157,7 +149,8 @@ export async function POST() {
       submitted_at: now,
       client_type: clientType,
       beneficiary_count: beneficiaryCount,
-      document_count: docs?.length || 0,
+      identity_verification_status: verification?.status || 'missing',
+      aml_hit: verification?.aml_hit || false,
     },
   });
 

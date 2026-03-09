@@ -98,7 +98,7 @@ export function Sidebar() {
         <div className="flex items-center gap-2.5 min-w-0">
           {!collapsed ? (
             <Image
-              src="/logo-isratransfer.svg"
+              src="/logo-isratransfer.png"
               alt="IsraTransfer"
               width={140}
               height={24}

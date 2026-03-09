@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { STEP_ROUTES } from '@/lib/onboarding/constants';
 import type { OnboardingStep } from '@/types/database';
 
@@ -14,27 +14,30 @@ export default async function OnboardingHubPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/onboard/register');
+    redirect('/portal/register');
   }
 
-  // Find the onboarding session for this user
-  const { data: session } = await supabase
+  // Use service role to query the session — avoids RLS timing issues
+  // after signup where the client's auth cookies may not yet propagate.
+  const serviceClient = createServiceClient();
+  const { data: session } = await serviceClient
     .from('onboarding_sessions')
     .select('current_step, status')
     .eq('auth_user_id', user.id)
     .single();
 
   if (!session) {
-    // No session found — user registered but something went wrong, send back to register
-    redirect('/onboard/register');
+    // No session found — sign out to clear stale session and send to register
+    await supabase.auth.signOut();
+    redirect('/portal/register');
   }
 
   // If already submitted, go to confirmation
   if (session.status === 'submitted' || session.status === 'under_review' || session.status === 'approved') {
-    redirect('/onboard/confirmation');
+    redirect('/portal/onboard/confirmation');
   }
 
   // Redirect to the current step
-  const route = STEP_ROUTES[session.current_step as OnboardingStep] || '/onboard/kyc';
+  const route = STEP_ROUTES[session.current_step as OnboardingStep] || '/portal/onboard/kyc';
   redirect(route);
 }

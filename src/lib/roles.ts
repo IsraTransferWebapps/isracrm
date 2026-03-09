@@ -48,3 +48,8 @@ export function canManageCompliance(role: UserRole | null): boolean {
 export function canManageDeals(role: UserRole | null): boolean {
   return role === 'account_manager' || role === 'management';
 }
+
+// Check if a role can manage onboarding form configurations
+export function canManageOnboardingConfig(role: UserRole | null): boolean {
+  return role === 'management';
+}

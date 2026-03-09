@@ -166,7 +166,7 @@ export function KycCorporateForm({ sessionId, clientId, stepData }: Props) {
       }
 
       await updateOnboardingStep(sessionId, 'beneficiaries', { kyc: data });
-      router.push('/onboard/beneficiaries');
+      router.push('/portal/onboard/beneficiaries');
     } catch (err) {
       console.error('Corporate KYC save failed:', err);
       setSubmitting(false);

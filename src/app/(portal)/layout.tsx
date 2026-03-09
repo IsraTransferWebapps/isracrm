@@ -2,18 +2,18 @@ import Image from 'next/image';
 import { Toaster } from 'sonner';
 
 export const metadata = {
-  title: 'IsraTransfer - Client Onboarding',
-  description: 'Complete your account setup with IsraTransfer',
+  title: 'IsraTransfer - Client Portal',
+  description: 'Manage your account with IsraTransfer',
 };
 
-export default function OnboardingLayout({ children }: { children: React.ReactNode }) {
+export default function PortalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex flex-col bg-[#F8FAFC]" dir="ltr" lang="en">
       {/* Minimal header */}
       <header className="border-b border-[#E2E8F0] bg-white">
         <div className="max-w-3xl mx-auto px-4 py-4 flex items-center">
           <Image
-            src="/logo-isratransfer.svg"
+            src="/logo-isratransfer.png"
             alt="IsraTransfer"
             width={140}
             height={24}

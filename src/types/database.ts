@@ -111,6 +111,7 @@ export interface IndividualDetails {
   purpose_of_transfers: string | null;
   sanctions_consent: boolean;
   sanctions_consent_date: string | null;
+  custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -144,6 +145,7 @@ export interface CorporateDetails {
   anticipated_volume: string | null;
   sanctions_consent: boolean;
   sanctions_consent_date: string | null;
+  custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -218,6 +220,7 @@ export interface Beneficiary {
   purpose_of_payments: string | null;
   estimated_frequency: string | null;
   verified: boolean;
+  custom_data: Record<string, unknown>;
   deleted_at: string | null;
   created_at: string;
   updated_at: string;
@@ -340,6 +343,7 @@ export interface KycDirector {
   address: string | null;
   role: string | null;
   id_document_reference: string | null;
+  custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -355,6 +359,7 @@ export interface KycUbo {
   is_pep: boolean;
   pep_details: string | null;
   id_document_reference: string | null;
+  custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -370,6 +375,7 @@ export interface FatcaDeclaration {
   self_certification: boolean;
   declaration_date: string | null;
   signed_by: string | null;
+  custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   tax_residencies?: TaxResidency[];
@@ -381,7 +387,47 @@ export interface TaxResidency {
   country: string;
   tin: string | null;
   reason_no_tin: string | null;
+  custom_data: Record<string, unknown>;
   created_at: string;
+}
+
+// --- IDENTITY VERIFICATION (Didit) ---
+
+export type IdentityVerificationStatus =
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+  | 'expired'
+  | 'abandoned';
+
+export interface IdentityVerification {
+  id: string;
+  client_id: string;
+  session_id: string;
+  didit_session_id: string;
+  didit_session_url: string;
+  status: IdentityVerificationStatus;
+  // Scores
+  liveness_score: number | null;
+  face_match_score: number | null;
+  aml_hit: boolean;
+  // Extracted document data
+  document_type: string | null;
+  document_number: string | null;
+  document_country: string | null;
+  document_expiry_date: string | null;
+  full_name_extracted: string | null;
+  date_of_birth_extracted: string | null;
+  // Full result payloads
+  id_verification_result: Record<string, unknown> | null;
+  aml_screening_result: Record<string, unknown>[] | null;
+  raw_webhook_payload: Record<string, unknown> | null;
+  webhook_received_at: string | null;
+  // Timestamps
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
 }
 
 export interface CrmSyncLogEntry {

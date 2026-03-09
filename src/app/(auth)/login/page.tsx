@@ -47,7 +47,7 @@ export default function LoginPage() {
         {/* Logo — IsraTransfer wordmark */}
         <div className="text-center mb-10">
           <Image
-            src="/logo-isratransfer.svg"
+            src="/logo-isratransfer.png"
             alt="IsraTransfer"
             width={200}
             height={34}
