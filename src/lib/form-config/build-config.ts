@@ -50,6 +50,7 @@ export function buildFormConfigFromRows(
       min_items: (s.min_items as number) ?? 0,
       max_items: (s.max_items as number) ?? 10,
       item_label: (s.item_label as string) ?? null,
+      show_when: s.show_when as FormSectionConfig['show_when'],
       fields: (fieldsBySection.get(s.id as string) || []).filter((f) => f.is_visible),
     }));
 

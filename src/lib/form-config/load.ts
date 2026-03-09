@@ -41,8 +41,10 @@ export async function loadFormData(
         } else if (field.db_column) {
           // Read from the actual column
           const value = (row as Record<string, unknown>)[field.db_column];
-          // Convert null to empty string for text fields to work with react-hook-form
-          if (value === null && ['text', 'email', 'date', 'select', 'country_select', 'textarea'].includes(field.field_type)) {
+          // Convert null to appropriate empty value for react-hook-form
+          if (value === null && field.field_type === 'checkbox_group') {
+            result[field.field_key] = [];
+          } else if (value === null && ['text', 'email', 'date', 'select', 'country_select', 'textarea'].includes(field.field_type)) {
             result[field.field_key] = '';
           } else if (value !== null && value !== undefined) {
             result[field.field_key] = value;
@@ -85,7 +87,9 @@ export async function loadFormData(
                 }
               } else if (field.db_column) {
                 const value = (childRow as Record<string, unknown>)[field.db_column];
-                if (value === null && ['text', 'email', 'date', 'select', 'country_select', 'textarea'].includes(field.field_type)) {
+                if (value === null && field.field_type === 'checkbox_group') {
+                  entry[field.field_key] = [];
+                } else if (value === null && ['text', 'email', 'date', 'select', 'country_select', 'textarea'].includes(field.field_type)) {
                   entry[field.field_key] = '';
                 } else if (value !== null && value !== undefined) {
                   entry[field.field_key] = value;

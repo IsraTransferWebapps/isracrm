@@ -1,6 +1,6 @@
 'use client';
 
-import type { FormConfig, FormSectionConfig, FormFieldConfig } from '@/lib/form-config/types';
+import type { FormConfig, FormSectionConfig, FormFieldConfig, ShowWhen } from '@/lib/form-config/types';
 import { resolveOptions } from '@/lib/form-config/options-registry';
 import { SectionCard } from './section-card';
 
@@ -26,6 +26,11 @@ export function DynamicReviewRenderer({ config, data, action }: DynamicReviewRen
   return (
     <div className="space-y-6">
       {config.sections.map((section) => {
+        // Section-level conditional visibility
+        if (section.show_when && !isSectionVisibleForReview(section.show_when, data)) {
+          return null;
+        }
+
         if (section.is_repeatable) {
           return (
             <ReviewRepeatableSection
@@ -174,6 +179,18 @@ function resolveDisplayValue(field: FormFieldConfig, value: unknown): string {
     return matched ? matched.label : String(value);
   }
 
+  // Checkbox group: resolve array of values to comma-separated labels
+  if (field.field_type === 'checkbox_group' && Array.isArray(value)) {
+    if (value.length === 0) return '—';
+    const options = resolveOptions(field.options, field.options_source);
+    return value
+      .map((v) => {
+        const matched = options.find((opt) => opt.value === v);
+        return matched ? matched.label : String(v);
+      })
+      .join(', ');
+  }
+
   return String(value);
 }
 
@@ -225,6 +242,25 @@ function ReviewRepeatableSection({
 }
 
 /**
+ * Check if a section should be visible in the review (section-level show_when).
+ */
+function isSectionVisibleForReview(
+  showWhen: ShowWhen,
+  data: Record<string, unknown>
+): boolean {
+  if ('logic' in showWhen && 'conditions' in showWhen) {
+    const results = showWhen.conditions.map((cond) => {
+      const currentValue = data[cond.field_key];
+      return evaluateReviewCondition(cond.operator, currentValue, cond.value);
+    });
+    return showWhen.logic === 'OR' ? results.some(Boolean) : results.every(Boolean);
+  }
+  const sw = showWhen as { field_key: string; operator: string; value: unknown };
+  const currentValue = data[sw.field_key];
+  return evaluateReviewCondition(sw.operator, currentValue, sw.value);
+}
+
+/**
  * Check if a field should be visible in the review, based on:
  * 1. The field has a value (non-empty) OR is always shown
  * 2. show_when conditions are met (using the data values)
@@ -268,6 +304,8 @@ function evaluateReviewCondition(
       return Array.isArray(conditionValue) && conditionValue.includes(currentValue);
     case 'not_empty':
       return currentValue !== '' && currentValue !== null && currentValue !== undefined;
+    case 'contains':
+      return Array.isArray(currentValue) && conditionValue != null && currentValue.includes(conditionValue as string);
     default:
       return true;
   }

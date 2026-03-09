@@ -104,6 +104,15 @@ function buildFieldSchema(field: FormFieldConfig): z.ZodTypeAny {
       break;
     }
 
+    case 'checkbox_group': {
+      // Multi-select checkboxes: stores string[]
+      const arr = z.array(z.string());
+      schema = field.is_required
+        ? arr.min(1, `Please select at least one option for ${field.label}`)
+        : arr.optional();
+      break;
+    }
+
     case 'file_upload': {
       // File uploads are handled separately by the DocumentUploader component.
       // The schema just needs a placeholder — validation happens at upload time.
@@ -172,7 +181,12 @@ export function buildZodSchema(sections: FormSectionConfig[]): z.ZodObject<Recor
   for (const section of sections) {
     if (section.is_repeatable) {
       // Repeatable sections become array properties
-      shape[section.section_key] = buildRepeatableSectionSchema(section);
+      let sectionSchema = buildRepeatableSectionSchema(section);
+      // Sections with show_when conditions should be optional (may be hidden)
+      if (section.show_when) {
+        sectionSchema = sectionSchema.optional();
+      }
+      shape[section.section_key] = sectionSchema;
     } else {
       // Flat sections merge their fields into the top-level object
       const sectionShape = buildFlatSectionSchema(section.fields);
@@ -200,6 +214,9 @@ export function buildDefaultValues(
       const existingArray = existingData?.[section.section_key];
       if (Array.isArray(existingArray) && existingArray.length > 0) {
         defaults[section.section_key] = existingArray;
+      } else if (section.show_when) {
+        // Conditional repeatable sections start with empty array (section may be hidden)
+        defaults[section.section_key] = [];
       } else {
         const emptyEntry: Record<string, unknown> = {};
         for (const field of section.fields) {
@@ -227,6 +244,8 @@ function getDefaultForType(field: FormFieldConfig): unknown {
     case 'checkbox':
     case 'switch':
       return false;
+    case 'checkbox_group':
+      return [];
     case 'number':
       return field.is_required ? 0 : undefined;
     default:

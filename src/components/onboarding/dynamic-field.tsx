@@ -184,6 +184,46 @@ export function DynamicField({ field, namePrefix = '', compact = false }: Dynami
       );
     }
 
+    case 'checkbox_group': {
+      // Multi-select checkboxes: stores a string[] of selected values
+      const options = resolveOptions(field.options, field.options_source);
+      const currentValues: string[] = (watch(fieldName) as string[]) || [];
+
+      return (
+        <div className="space-y-1.5">
+          <Label className={labelSize}>
+            {field.label}{field.is_required && ' *'}
+          </Label>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {options.map((opt) => (
+              <div key={opt.value} className="flex items-center gap-2">
+                <Checkbox
+                  id={`${fieldName}_${opt.value}`}
+                  checked={currentValues.includes(opt.value)}
+                  onCheckedChange={(checked) => {
+                    const next = checked
+                      ? [...currentValues, opt.value]
+                      : currentValues.filter((v) => v !== opt.value);
+                    setValue(fieldName, next, { shouldValidate: true });
+                  }}
+                />
+                <label
+                  htmlFor={`${fieldName}_${opt.value}`}
+                  className="text-xs text-[#717D93] cursor-pointer leading-snug"
+                >
+                  {opt.label}
+                </label>
+              </div>
+            ))}
+          </div>
+          {field.help_text && (
+            <p className="text-[11px] text-[#94A3B8]">{field.help_text}</p>
+          )}
+          {error && <p className="text-xs text-red-500">{error}</p>}
+        </div>
+      );
+    }
+
     default:
       return null;
   }

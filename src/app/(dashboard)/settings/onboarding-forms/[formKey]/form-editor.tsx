@@ -46,6 +46,7 @@ const FIELD_TYPE_LABELS: Record<FieldType, string> = {
   select: 'Dropdown',
   country_select: 'Country Dropdown',
   checkbox: 'Checkbox',
+  checkbox_group: 'Checkbox Group',
   switch: 'Toggle Switch',
   textarea: 'Text Area',
   number: 'Number',

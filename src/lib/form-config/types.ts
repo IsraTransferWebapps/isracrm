@@ -13,13 +13,14 @@ export type FieldType =
   | 'select'
   | 'country_select'
   | 'checkbox'
+  | 'checkbox_group' // multi-select checkboxes (stores string[])
   | 'switch'
   | 'textarea'
   | 'number'
   | 'file_upload';
 
 // Operators for conditional field display
-export type ShowWhenOperator = 'equals' | 'not_equals' | 'in' | 'not_empty';
+export type ShowWhenOperator = 'equals' | 'not_equals' | 'in' | 'not_empty' | 'contains';
 
 // Simple condition: show field when another field matches a value
 export interface ShowWhenCondition {
@@ -85,6 +86,7 @@ export interface FormSectionConfig {
   min_items: number;
   max_items: number;
   item_label?: string | null;
+  show_when?: ShowWhen | null;
   fields: FormFieldConfig[];
 }
 

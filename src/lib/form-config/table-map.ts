@@ -11,6 +11,9 @@ export const FORM_TABLE_MAP: Record<string, FormTableMapping> = {
   kyc_individual: {
     table: 'individual_details',
     filterColumn: 'client_id',
+    repeatables: {
+      beneficiary_declarations: { table: 'beneficiary_declarations', filterColumn: 'client_id' },
+    },
   },
   kyc_corporate: {
     table: 'corporate_details',

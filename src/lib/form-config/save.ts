@@ -37,8 +37,8 @@ export async function saveFormData(
         if (field.is_custom) {
           customData[field.field_key] = value;
         } else if (field.db_column) {
-          // Convert empty strings to null for DB storage
-          builtIn[field.db_column] = value === '' ? null : value;
+          // Convert empty strings and empty arrays to null for DB storage
+          builtIn[field.db_column] = (value === '' || (Array.isArray(value) && value.length === 0)) ? null : value;
         }
       }
     }
@@ -128,7 +128,7 @@ export async function saveFormData(
               if (field.is_custom) {
                 itemCustom[field.field_key] = val;
               } else if (field.db_column) {
-                row[field.db_column] = val === '' ? null : val;
+                row[field.db_column] = (val === '' || (Array.isArray(val) && val.length === 0)) ? null : val;
               }
             }
 

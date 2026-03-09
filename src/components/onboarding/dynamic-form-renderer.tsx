@@ -5,7 +5,7 @@ import { useForm, useFieldArray, useFormContext, FormProvider } from 'react-hook
 import { zodResolver } from '@hookform/resolvers/zod';
 import { buildZodSchema, buildDefaultValues } from '@/lib/form-config/build-schema';
 import { isCompoundShowWhen } from '@/lib/form-config/types';
-import type { FormConfig, FormSectionConfig, FormFieldConfig, ShowWhenCondition } from '@/lib/form-config/types';
+import type { FormConfig, FormSectionConfig, FormFieldConfig, ShowWhenCondition, ShowWhen } from '@/lib/form-config/types';
 import { useAutoSave } from '@/hooks/use-auto-save';
 import { SectionCard } from './section-card';
 import { DynamicField } from './dynamic-field';
@@ -116,6 +116,11 @@ interface DynamicSectionProps {
 function DynamicSection({ section }: DynamicSectionProps) {
   const { watch } = useFormContext();
 
+  // Section-level conditional visibility (e.g. repeatable sections shown based on a toggle)
+  if (section.show_when && !isSectionVisible(section.show_when, watch)) {
+    return null;
+  }
+
   if (section.is_repeatable) {
     return <RepeatableSection section={section} />;
   }
@@ -186,9 +191,11 @@ function RepeatableSection({ section }: RepeatableSectionProps) {
               for (const f of section.fields) {
                 emptyEntry[f.field_key] = f.field_type === 'checkbox' || f.field_type === 'switch'
                   ? false
-                  : f.field_type === 'number'
-                    ? 0
-                    : '';
+                  : f.field_type === 'checkbox_group'
+                    ? []
+                    : f.field_type === 'number'
+                      ? 0
+                      : '';
               }
               append(emptyEntry);
             }}
@@ -287,6 +294,22 @@ function groupFieldsIntoRows(fields: FormFieldConfig[]): FormFieldConfig[][] {
   return rows;
 }
 
+// Evaluate section-level visibility (uses top-level form values, no prefix)
+function isSectionVisible(
+  showWhen: ShowWhen,
+  watch: ReturnType<typeof useFormContext>['watch']
+): boolean {
+  if (isCompoundShowWhen(showWhen)) {
+    const results = showWhen.conditions.map((cond) =>
+      evaluateCondition(cond, watch, '')
+    );
+    return showWhen.logic === 'OR'
+      ? results.some(Boolean)
+      : results.every(Boolean);
+  }
+  return evaluateCondition(showWhen as ShowWhenCondition, watch, '');
+}
+
 // Evaluate whether a field should be visible based on its show_when condition
 function isFieldVisible(
   field: FormFieldConfig,
@@ -327,6 +350,9 @@ function evaluateCondition(
       return Array.isArray(condition.value) && condition.value.includes(currentValue);
     case 'not_empty':
       return currentValue !== '' && currentValue !== null && currentValue !== undefined;
+    case 'contains':
+      // Check if an array value includes a specific item (for checkbox_group fields)
+      return Array.isArray(currentValue) && currentValue.includes(condition.value as string);
     default:
       return true;
   }

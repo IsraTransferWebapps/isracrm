@@ -102,13 +102,31 @@ export interface IndividualDetails {
   address_region: string | null;
   address_postal_code: string | null;
   address_country: string | null;
+  passport_issuing_country: string | null;
   occupation: string | null;
   employer: string | null;
+  is_retired: boolean;
+  occupation_business_sector: string | null;
+  referral_source: string | null;
+  referral_detail: string | null;
+  has_israel_bank_account: boolean;
+  is_foreign_resident: boolean;
+  connection_to_israel: string | null;
   politically_exposed_person: boolean;
   pep_details: string | null;
-  source_of_funds: string | null;
+  previously_denied_aml: boolean;
+  previously_denied_aml_details: string | null;
+  is_business_owner: boolean;
+  business_owner_company: string | null;
+  business_owner_sector: string | null;
+  source_of_funds: string[] | null;
   source_of_funds_detail: string | null;
   purpose_of_transfers: string | null;
+  transfer_currency: string[] | null;
+  transfer_direction: string[] | null;
+  expected_annual_volume: string | null;
+  source_account_type: string | null;
+  destination_account_type: string | null;
   sanctions_consent: boolean;
   sanctions_consent_date: string | null;
   custom_data: Record<string, unknown>;
@@ -359,6 +377,24 @@ export interface KycUbo {
   is_pep: boolean;
   pep_details: string | null;
   id_document_reference: string | null;
+  custom_data: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface BeneficiaryDeclaration {
+  id: string;
+  client_id: string;
+  full_name: string;
+  date_of_birth: string | null;
+  id_number: string | null;
+  passport_number: string | null;
+  gender: string | null;
+  address_street: string | null;
+  address_city: string | null;
+  address_state: string | null;
+  address_zipcode: string | null;
+  address_country: string | null;
   custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;
