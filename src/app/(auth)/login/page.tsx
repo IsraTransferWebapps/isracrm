@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -11,11 +12,35 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertCircle, Loader2, Lock } from 'lucide-react';
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
+
+  // Handle recovery tokens in the URL hash fragment
+  // Supabase implicit flow redirects here with #access_token=...&type=recovery
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash && hash.includes('type=recovery')) {
+      // Parse the hash to extract the access_token and refresh_token
+      const params = new URLSearchParams(hash.substring(1));
+      const accessToken = params.get('access_token');
+      const refreshToken = params.get('refresh_token');
+
+      if (accessToken && refreshToken) {
+        // Set the session manually from the hash tokens
+        supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        }).then(() => {
+          // Clear the hash and redirect to reset password page
+          window.location.replace('/reset-password');
+        });
+      }
+    }
+  }, [supabase]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

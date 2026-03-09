@@ -77,7 +77,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   // --- CRM ROUTING ---
-  const publicPaths = ['/login', '/auth/callback'];
+  const publicPaths = ['/login', '/reset-password', '/auth/callback'];
   const isPublicPath = publicPaths.some((path) =>
     pathname.startsWith(path)
   );

@@ -27,12 +27,17 @@ import {
   Plus,
   ShieldCheck,
   Building2,
+  Mail,
+  ChevronLeft,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate, formatCurrency, formatRate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { Beneficiary, DealStatus } from '@/types/database';
+import type { Beneficiary, DealStatus, Email, EmailThread } from '@/types/database';
 import { BeneficiaryDialog } from '@/components/beneficiary-dialog';
+import { EmailList } from '@/components/email/email-list';
+import { EmailThread as EmailThreadView } from '@/components/email/email-thread';
+import { ComposeDialog } from '@/components/email/compose-dialog';
 
 // ─── Pill badge component ───
 function StatusPill({ bg, text, dot, label }: { bg: string; text: string; dot: string; label: string }) {
@@ -90,7 +95,7 @@ function getTransferType(entry: { entry_type: string; deal_id: string | null }):
 }
 
 // ─── Tab definitions ───
-type TabId = 'overview' | 'trades' | 'transfers' | 'balances' | 'bank_details';
+type TabId = 'overview' | 'trades' | 'transfers' | 'balances' | 'bank_details' | 'emails';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: MessageSquare },
@@ -98,6 +103,7 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'transfers', label: 'Transfers', icon: RefreshCw },
   { id: 'balances', label: 'Balances', icon: Wallet },
   { id: 'bank_details', label: 'Bank Details', icon: Landmark },
+  { id: 'emails', label: 'Emails', icon: Mail },
 ];
 
 export default function ClientDetailPage() {
@@ -116,8 +122,13 @@ export default function ClientDetailPage() {
   const [beneficiariesLoading, setBeneficiariesLoading] = useState(false);
   const [beneficiaryDialogOpen, setBeneficiaryDialogOpen] = useState(false);
   const [editingBeneficiary, setEditingBeneficiary] = useState<Beneficiary | null>(null);
+  const [emailThreads, setEmailThreads] = useState<EmailThread[]>([]);
+  const [emailThreadsLoading, setEmailThreadsLoading] = useState(false);
+  const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
+  const [composeDialogOpen, setComposeDialogOpen] = useState(false);
+  const [replyTo, setReplyTo] = useState<Email | null>(null);
   const supabase = createClient();
-  const { role } = useUser();
+  const { role, profile } = useUser();
 
   // Fetch client data
   useEffect(() => {
@@ -236,6 +247,26 @@ export default function ClientDetailPage() {
     if (activeTab !== 'bank_details' || beneficiaries.length > 0) return;
     fetchBeneficiaries();
   }, [activeTab, clientId]);
+
+  // Fetch email threads when emails tab is activated
+  const fetchEmailThreads = async () => {
+    if (!profile?.id) return;
+    setEmailThreadsLoading(true);
+    const { data } = await supabase
+      .from('email_threads')
+      .select('*, emails(*)')
+      .eq('client_id', clientId)
+      .eq('staff_user_id', profile.id)
+      .order('last_message_at', { ascending: false });
+
+    if (data) setEmailThreads(data as EmailThread[]);
+    setEmailThreadsLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'emails' || emailThreads.length > 0) return;
+    fetchEmailThreads();
+  }, [activeTab, clientId, profile?.id]);
 
   const handleDeleteBeneficiary = async (id: string) => {
     if (!window.confirm('Are you sure you want to remove this bank account?')) return;
@@ -708,6 +739,160 @@ export default function ClientDetailPage() {
             onSaved={() => {
               setBeneficiaries([]);
               fetchBeneficiaries();
+            }}
+          />
+        </div>
+      )}
+
+      {activeTab === 'emails' && (
+        <div>
+          {/* Header with Compose button */}
+          <div className="flex items-center justify-between mb-4">
+            {selectedThread ? (
+              <button
+                onClick={() => setSelectedThread(null)}
+                className="inline-flex items-center gap-1.5 text-[13px] text-[#717D93] hover:text-[#01A0FF] transition-colors"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Back to threads
+              </button>
+            ) : (
+              <p className="text-[13px] text-[#717D93]">
+                {emailThreads.length} conversation{emailThreads.length !== 1 ? 's' : ''}
+              </p>
+            )}
+            <Button
+              size="sm"
+              onClick={() => {
+                setReplyTo(null);
+                setComposeDialogOpen(true);
+              }}
+              className="bg-[#01A0FF] hover:bg-[#0090e6] text-white h-8 text-[12px] shadow-sm shadow-[#01A0FF]/15"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              Compose
+            </Button>
+          </div>
+
+          {selectedThread && profile?.id ? (
+            /* Thread detail view */
+            <div className="rounded-xl border border-[#E2E8F0] bg-white shadow-sm overflow-hidden">
+              <div className="px-5 py-3 border-b border-[#E2E8F0] bg-[#FAFBFC]">
+                <h3 className="text-[14px] font-semibold text-[#253859]">{selectedThread.subject}</h3>
+                <p className="text-[11px] text-[#94A3B8] mt-0.5">{selectedThread.message_count} message{selectedThread.message_count !== 1 ? 's' : ''}</p>
+              </div>
+              <EmailThreadView
+                threadId={selectedThread.id}
+                staffUserId={profile.id}
+                onReply={(email) => {
+                  setReplyTo(email);
+                  setComposeDialogOpen(true);
+                }}
+              />
+            </div>
+          ) : (
+            /* Thread list view */
+            <div className="rounded-xl border border-[#E2E8F0] bg-white shadow-sm overflow-hidden">
+              {emailThreadsLoading ? (
+                <div className="divide-y divide-[#E2E8F0]">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-3.5">
+                      <div className="flex-1 space-y-1.5">
+                        <div className="h-3.5 w-52 rounded skeleton-brand" style={{ animationDelay: `${i * 60}ms` }} />
+                        <div className="h-3 w-72 rounded skeleton-brand" style={{ animationDelay: `${i * 60 + 30}ms` }} />
+                      </div>
+                      <div className="h-3 w-14 rounded skeleton-brand flex-shrink-0" style={{ animationDelay: `${i * 60 + 60}ms` }} />
+                    </div>
+                  ))}
+                </div>
+              ) : emailThreads.length === 0 ? (
+                <div className="text-center py-16">
+                  <Mail className="h-10 w-10 text-[#E2E8F0] mx-auto mb-3" />
+                  <p className="text-[#717D93] font-medium text-[14px]">No email conversations</p>
+                  <p className="text-[13px] text-[#94A3B8] mt-1">Send an email to start a conversation with this client</p>
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setReplyTo(null);
+                      setComposeDialogOpen(true);
+                    }}
+                    className="mt-4 bg-[#01A0FF] hover:bg-[#0090e6] text-white h-8 text-[12px] shadow-sm shadow-[#01A0FF]/15"
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1.5" />
+                    Compose
+                  </Button>
+                </div>
+              ) : (
+                <div className="divide-y divide-[#E2E8F0]">
+                  {emailThreads.map((thread) => {
+                    // Get the latest email in the thread for snippet display
+                    const threadEmails = (thread.emails || []) as Email[];
+                    const latestEmail = threadEmails.sort(
+                      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    )[0];
+                    const hasUnread = threadEmails.some((e) => !e.is_read && e.direction === 'inbound');
+
+                    return (
+                      <div
+                        key={thread.id}
+                        onClick={() => setSelectedThread(thread)}
+                        className={cn(
+                          'flex items-start gap-3 px-4 py-3.5 cursor-pointer transition-colors hover:bg-[#F8FAFC]',
+                          hasUnread && 'bg-[#FAFBFE]'
+                        )}
+                      >
+                        <div className="w-2 pt-1.5 flex-shrink-0">
+                          {hasUnread && (
+                            <span className="w-2 h-2 rounded-full bg-[#01A0FF] block" />
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={cn(
+                                'text-[13px] truncate',
+                                hasUnread ? 'font-semibold text-[#253859]' : 'font-medium text-[#42526E]'
+                              )}
+                            >
+                              {thread.subject}
+                            </span>
+                            <span className="inline-flex items-center justify-center h-4 min-w-4 px-1 rounded text-[10px] font-medium bg-[#F4F5F7] text-[#717D93] flex-shrink-0">
+                              {thread.message_count}
+                            </span>
+                          </div>
+                          {latestEmail?.snippet && (
+                            <p className="text-[12px] text-[#94A3B8] truncate mt-0.5">
+                              {latestEmail.snippet}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-[#94A3B8] flex-shrink-0 pt-0.5">
+                          {formatDate(thread.last_message_at)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Compose Dialog */}
+          <ComposeDialog
+            open={composeDialogOpen}
+            onOpenChange={setComposeDialogOpen}
+            defaultTo={
+              replyTo
+                ? (replyTo.direction === 'inbound' ? replyTo.from_address : replyTo.to_address)
+                : (client.individual_details?.email_primary || '')
+            }
+            defaultSubject={replyTo?.subject || ''}
+            threadId={replyTo?.thread_id || selectedThread?.id || undefined}
+            clientId={clientId}
+            inReplyTo={replyTo?.message_id || undefined}
+            onSent={() => {
+              setEmailThreads([]);
+              fetchEmailThreads();
             }}
           />
         </div>

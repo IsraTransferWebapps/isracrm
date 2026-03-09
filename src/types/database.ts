@@ -430,6 +430,78 @@ export interface IdentityVerification {
   completed_at: string | null;
 }
 
+// --- EMAIL ---
+
+export type EmailDirection = 'inbound' | 'outbound';
+export type EmailTrackingEventType = 'open' | 'click' | 'bounce' | 'delivered';
+
+export interface EmailThread {
+  id: string;
+  subject: string;
+  client_id: string | null;
+  staff_user_id: string;
+  last_message_at: string;
+  message_count: number;
+  is_archived: boolean;
+  created_at: string;
+  // Joined relations
+  client?: Client | null;
+  emails?: Email[];
+}
+
+export interface Email {
+  id: string;
+  thread_id: string | null;
+  staff_user_id: string;
+  client_id: string | null;
+  direction: EmailDirection;
+  from_address: string;
+  from_name: string | null;
+  to_address: string;
+  to_name: string | null;
+  cc: string[] | null;
+  subject: string;
+  body_text: string | null;
+  body_html: string | null;
+  snippet: string | null;
+  message_id: string | null;
+  in_reply_to: string | null;
+  references_header: string | null;
+  has_attachments: boolean;
+  is_read: boolean;
+  is_starred: boolean;
+  tracking_pixel_id: string | null;
+  opened_at: string | null;
+  raw_headers: Record<string, unknown> | null;
+  created_at: string;
+  updated_at: string;
+  // Joined relations
+  thread?: EmailThread | null;
+  client?: Client | null;
+  attachments?: EmailAttachment[];
+  tracking_events?: EmailTrackingEvent[];
+}
+
+export interface EmailAttachment {
+  id: string;
+  email_id: string;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number | null;
+  storage_path: string;
+  created_at: string;
+}
+
+export interface EmailTrackingEvent {
+  id: string;
+  email_id: string;
+  event_type: EmailTrackingEventType;
+  metadata: Record<string, unknown> | null;
+  ip_address: string | null;
+  user_agent: string | null;
+  created_at: string;
+}
+
 export interface CrmSyncLogEntry {
   id: string;
   onboarding_session_id: string;
