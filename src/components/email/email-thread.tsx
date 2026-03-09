@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime, formatFileSize } from '@/lib/format';
 import {
   ArrowDown,
   ArrowUp,
@@ -19,14 +19,6 @@ interface EmailThreadProps {
   threadId: string;
   staffUserId: string;
   onReply?: (email: Email) => void;
-}
-
-// Format bytes to human-readable size
-function formatFileSize(bytes: number | null): string {
-  if (!bytes) return '';
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export function EmailThread({ threadId, staffUserId, onReply }: EmailThreadProps) {

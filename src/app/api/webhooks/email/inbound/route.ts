@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
+import { normalizeSubject, generateSnippet, findClientByEmail } from '@/lib/email/utils';
 
 /**
  * POST /api/webhooks/email/inbound
@@ -85,9 +86,7 @@ export async function POST(request: Request) {
     const clientId = await findClientByEmail(supabase, fromAddress);
 
     // 6. Generate a snippet from the body text
-    const snippet = bodyText
-      ? bodyText.replace(/\s+/g, ' ').trim().substring(0, 120)
-      : null;
+    const snippet = generateSnippet(bodyText);
 
     // 7. Find or create an email thread
     const normalizedSubject = normalizeSubject(subject);
@@ -210,16 +209,6 @@ function extractDisplayName(raw: string): string | null {
 }
 
 /**
- * Normalize an email subject by stripping Re:/Fwd: prefixes for thread matching
- */
-function normalizeSubject(subject: string): string {
-  return subject
-    .replace(/^(re|fwd?|fw)\s*:\s*/gi, '')
-    .replace(/^(re|fwd?|fw)\s*:\s*/gi, '') // Handle double prefixes like "Re: Fwd:"
-    .trim();
-}
-
-/**
  * Parse raw email headers string into a key-value record
  */
 function parseEmailHeaders(raw: string): Record<string, string> {
@@ -251,48 +240,6 @@ function parseEmailHeaders(raw: string): Record<string, string> {
   }
 
   return headers;
-}
-
-/**
- * Find a client by their email address, checking both individual and corporate details
- */
-async function findClientByEmail(
-  supabase: ReturnType<typeof createServiceClient>,
-  email: string
-): Promise<string | null> {
-  // Check individual_details.email_primary
-  const { data: individual } = await supabase
-    .from('individual_details')
-    .select('client_id')
-    .ilike('email_primary', email)
-    .limit(1)
-    .maybeSingle();
-
-  if (individual) return individual.client_id;
-
-  // Check individual_details.email_secondary
-  const { data: individualSecondary } = await supabase
-    .from('individual_details')
-    .select('client_id')
-    .ilike('email_secondary', email)
-    .limit(1)
-    .maybeSingle();
-
-  if (individualSecondary) return individualSecondary.client_id;
-
-  // Check corporate_details — search in custom_data or contact email fields
-  // Corporate details don't have a top-level email field, so we check
-  // the directors/beneficial_owners or custom_data for contact emails
-  const { data: corporate } = await supabase
-    .from('corporate_details')
-    .select('client_id')
-    .or(`custom_data->>contact_email.ilike.${email},custom_data->>email.ilike.${email}`)
-    .limit(1)
-    .maybeSingle();
-
-  if (corporate) return corporate.client_id;
-
-  return null;
 }
 
 /**

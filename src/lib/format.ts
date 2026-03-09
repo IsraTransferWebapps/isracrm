@@ -90,3 +90,11 @@ export function toMajor(minorUnits: number): number {
 export function toMinor(majorUnits: number): number {
   return Math.round(majorUnits * 100);
 }
+
+// Format bytes to a human-readable file size string
+export function formatFileSize(bytes: number | null): string {
+  if (!bytes) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
