@@ -415,6 +415,8 @@ export interface FatcaDeclaration {
   declaration_date: string | null;
   signed_by: string | null;
   signature_image: string | null;
+  signature_ip: string | null;
+  signature_user_agent: string | null;
   custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;

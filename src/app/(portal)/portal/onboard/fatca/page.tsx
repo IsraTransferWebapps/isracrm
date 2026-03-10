@@ -107,6 +107,16 @@ function FatcaContent() {
 
       // Store the path in the form data (will be saved to fatca_declarations.signature_image)
       data.signature_image = storagePath;
+
+      // Record signing metadata server-side (IP address, user agent) for audit trail
+      await fetch('/api/clients/onboard/sign-fatca', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ signature_image: storagePath }),
+      }).catch((err) => {
+        // Non-blocking — the signature itself is already saved
+        console.error('Failed to record signing metadata:', err);
+      });
     }
 
     const result = await saveFormData(supabase, formConfig, data, clientId);

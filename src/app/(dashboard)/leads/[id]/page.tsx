@@ -361,11 +361,23 @@ export default function LeadDetailPage() {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={fatcaSignatureUrl} alt="FATCA signature" className="h-20 w-auto" />
                 </div>
-                {typeof fatcaData.declaration_date === 'string' && (
-                  <p className="text-xs text-[#94A3B8] mt-1">
-                    Signed on {new Date(fatcaData.declaration_date).toLocaleDateString()}
-                  </p>
-                )}
+                <div className="mt-2 space-y-0.5">
+                  {typeof fatcaData.declaration_date === 'string' && (
+                    <p className="text-xs text-[#94A3B8]">
+                      Signed on {new Date(fatcaData.declaration_date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {typeof fatcaData.signature_ip === 'string' && (
+                    <p className="text-xs text-[#94A3B8]">
+                      IP: {fatcaData.signature_ip}
+                    </p>
+                  )}
+                  {typeof fatcaData.signed_by === 'string' && (
+                    <p className="text-xs text-[#94A3B8]">
+                      Signed by: {fatcaData.signed_by}
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </>
