@@ -1,7 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useForm, useFieldArray, useFormContext, FormProvider } from 'react-hook-form';
+import type { FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { buildZodSchema, buildDefaultValues } from '@/lib/form-config/build-schema';
 import { isCompoundShowWhen } from '@/lib/form-config/types';
@@ -10,7 +11,7 @@ import { useAutoSave } from '@/hooks/use-auto-save';
 import { SectionCard } from './section-card';
 import { DynamicField } from './dynamic-field';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { AlertCircle, Loader2, Plus, Trash2 } from 'lucide-react';
 
 interface DynamicFormRendererProps {
   config: FormConfig;
@@ -44,6 +45,7 @@ export function DynamicFormRenderer({
   submitLabel = 'Save & Continue',
 }: DynamicFormRendererProps) {
   const [submitting, setSubmitting] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   // Build the Zod schema dynamically from the field configs
   const schema = buildZodSchema(config.sections);
@@ -70,6 +72,7 @@ export function DynamicFormRenderer({
   useAutoSave(sessionId, stepName, formValues);
 
   const handleFormSubmit = async (data: Record<string, unknown>) => {
+    setValidationError(null);
     setSubmitting(true);
     try {
       await onSubmit(data);
@@ -79,15 +82,46 @@ export function DynamicFormRenderer({
     }
   };
 
+  // When validation fails, scroll to the first error field and show a message
+  const handleValidationError = useCallback((errors: FieldErrors) => {
+    // Count total errors (flatten nested objects for repeatable sections)
+    const errorKeys = Object.keys(errors);
+    const errorCount = errorKeys.length;
+    setValidationError(
+      `Please fix ${errorCount} required field${errorCount !== 1 ? 's' : ''} above before continuing.`
+    );
+
+    // Scroll to the first error field
+    const firstErrorKey = errorKeys[0];
+    if (firstErrorKey) {
+      // Try to find the field element by name attribute or data attribute
+      const el =
+        document.querySelector(`[name="${firstErrorKey}"]`) ||
+        document.querySelector(`[data-field-key="${firstErrorKey}"]`) ||
+        document.querySelector(`[id^="${firstErrorKey}"]`);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, []);
+
   return (
     <FormProvider {...methods}>
-      <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form onSubmit={handleSubmit(handleFormSubmit, handleValidationError)} className="space-y-6">
         {config.sections.map((section) => (
           <DynamicSection
             key={section.id}
             section={section}
           />
         ))}
+
+        {/* Validation error banner */}
+        {validationError && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            {validationError}
+          </div>
+        )}
 
         {/* Submit button */}
         <div className="flex justify-end gap-3 pt-4">
