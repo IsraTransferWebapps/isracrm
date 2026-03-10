@@ -105,6 +105,7 @@ export type FormKey =
   | 'kyc_individual'
   | 'kyc_corporate'
   | 'beneficiary'
+  | 'beneficiary_declaration'
   | 'fatca'
   | 'documents';
 

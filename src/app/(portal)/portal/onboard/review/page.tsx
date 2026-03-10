@@ -13,11 +13,11 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, Pencil, CheckCircle2, AlertCircle, Building2, ShieldCheck } from 'lucide-react';
+import { Loader2, Pencil, CheckCircle2, AlertCircle, ShieldCheck } from 'lucide-react';
 import { getVerificationForClient } from '@/lib/idv/status';
 import { createClient } from '@/lib/supabase/client';
 import type { FormConfig } from '@/lib/form-config/types';
-import type { Beneficiary, IdentityVerification } from '@/types/database';
+import type { IdentityVerification } from '@/types/database';
 
 function ReviewContent() {
   const { session, clientId, clientType, loading } = useOnboarding();
@@ -26,12 +26,13 @@ function ReviewContent() {
 
   // Form configs
   const [kycConfig, setKycConfig] = useState<FormConfig | null>(null);
+  const [beneficiaryConfig, setBeneficiaryConfig] = useState<FormConfig | null>(null);
   const [fatcaConfig, setFatcaConfig] = useState<FormConfig | null>(null);
 
   // Data
   const [kycData, setKycData] = useState<Record<string, unknown>>({});
+  const [beneficiaryData, setBeneficiaryData] = useState<Record<string, unknown>>({});
   const [fatcaData, setFatcaData] = useState<Record<string, unknown>>({});
-  const [beneficiaries, setBeneficiaries] = useState<Beneficiary[]>([]);
   const [verification, setVerification] = useState<IdentityVerification | null>(null);
 
   const [loadingData, setLoadingData] = useState(true);
@@ -46,22 +47,26 @@ function ReviewContent() {
       const kycFormKey = clientType === 'corporate' ? 'kyc_corporate' : 'kyc_individual';
 
       // Fetch configs and data in parallel
-      const [kycCfg, fatcaCfg, benefData, idvResult] = await Promise.all([
+      const [kycCfg, benefCfg, fatcaCfg, idvResult] = await Promise.all([
         getFormConfigClient(supabase, kycFormKey),
+        getFormConfigClient(supabase, 'beneficiary_declaration'),
         getFormConfigClient(supabase, 'fatca'),
-        supabase.from('beneficiaries').select('*').eq('client_id', clientId).is('deleted_at', null).order('created_at'),
         getVerificationForClient(supabase, clientId),
       ]);
 
       setKycConfig(kycCfg);
+      setBeneficiaryConfig(benefCfg);
       setFatcaConfig(fatcaCfg);
-      setBeneficiaries((benefData.data as Beneficiary[]) || []);
       setVerification(idvResult);
 
       // Load form data using configs
       if (kycCfg) {
         const data = await loadFormData(supabase, kycCfg, clientId);
         setKycData(data);
+      }
+      if (benefCfg) {
+        const data = await loadFormData(supabase, benefCfg, clientId);
+        setBeneficiaryData(data);
       }
       if (fatcaCfg) {
         const data = await loadFormData(supabase, fatcaCfg, clientId);
@@ -139,31 +144,12 @@ function ReviewContent() {
           )}
         </SectionCard>
 
-        {/* Beneficiaries Section */}
-        <SectionCard
-          title={`Beneficiaries (${beneficiaries.length})`}
-          action={editButton('/portal/onboard/beneficiaries')}
-        >
-          {beneficiaries.length > 0 ? (
-            <div className="space-y-3">
-              {beneficiaries.map((b) => (
-                <div key={b.id} className="flex items-center gap-3 border border-[#E2E8F0] rounded-md p-3">
-                  <div className="p-2 rounded-lg bg-[#F4F5F7]">
-                    <Building2 className="w-4 h-4 text-[#717D93]" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-[#253859]">{b.beneficiary_name}</p>
-                    <p className="text-xs text-[#717D93]">
-                      {b.bank_name}{b.bank_country ? ` (${b.bank_country})` : ''} &mdash; {b.currency}
-                    </p>
-                    {b.iban && <p className="text-xs text-[#717D93]">IBAN: {b.iban}</p>}
-                    {b.account_number && <p className="text-xs text-[#717D93]">Account: {b.account_number}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Beneficiary Declaration Section */}
+        <SectionCard title="Beneficiary Declaration" action={editButton('/portal/onboard/beneficiaries')}>
+          {beneficiaryConfig && Object.keys(beneficiaryData).length > 0 ? (
+            <DynamicReviewSection config={beneficiaryConfig} data={beneficiaryData} />
           ) : (
-            <p className="text-sm text-amber-600">No beneficiaries added</p>
+            <p className="text-sm text-amber-600">Beneficiary declaration not completed</p>
           )}
         </SectionCard>
 
