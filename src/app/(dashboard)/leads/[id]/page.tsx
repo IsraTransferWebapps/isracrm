@@ -396,6 +396,18 @@ export default function LeadDetailPage() {
                 </div>
               </div>
             )}
+            {/* Download filled PDF */}
+            <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-[#717D93] hover:text-[#253859] h-8 text-[12px]"
+                onClick={() => window.open(`/api/leads/${id}/beneficiary-pdf`, '_blank')}
+              >
+                <FileText className="w-3.5 h-3.5 mr-1.5" />
+                Download Signed PDF
+              </Button>
+            </div>
           </>
         ) : (
           <p className="text-sm text-[#94A3B8]">Beneficiary declaration not submitted</p>
