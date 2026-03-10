@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { createClient } from '@/lib/supabase/server';
 import { generateBeneficiaryPdf } from '@/lib/pdf/generate-beneficiary-pdf';
 import type { BeneficiaryDeclaration } from '@/types/database';
@@ -82,30 +84,55 @@ export async function GET(
   const actingForBeneficiary = customData.acting_for_beneficiary === true;
   const forMyself = !actingForBeneficiary;
 
-  // 7. Fetch the PDF template from the app's own static files
-  const templateUrl = new URL('/templates/beneficiary-declaration.pdf', request.url);
-  const templateResponse = await fetch(templateUrl);
+  // 7. Load the PDF template
+  // Try filesystem first (works locally and on some hosts), fall back to HTTP fetch
+  let templateBytes: Uint8Array;
+  try {
+    const templatePath = join(process.cwd(), 'public', 'templates', 'beneficiary-declaration.pdf');
+    templateBytes = new Uint8Array(readFileSync(templatePath));
+  } catch {
+    // Filesystem read failed (e.g. Netlify CDN-separated static files) — fetch via HTTP
+    try {
+      const templateUrl = new URL('/templates/beneficiary-declaration.pdf', request.url);
+      const templateResponse = await fetch(templateUrl);
 
-  if (!templateResponse.ok) {
-    console.error('Failed to fetch PDF template:', templateResponse.status);
-    return NextResponse.json({ error: 'PDF template not found' }, { status: 500 });
+      if (!templateResponse.ok) {
+        console.error('Failed to fetch PDF template:', templateResponse.status);
+        return NextResponse.json({ error: 'PDF template not found' }, { status: 500 });
+      }
+
+      const contentType = templateResponse.headers.get('content-type') || '';
+      if (!contentType.includes('pdf')) {
+        console.error('Template fetch returned non-PDF content:', contentType);
+        return NextResponse.json({ error: 'PDF template not found (wrong content type)' }, { status: 500 });
+      }
+
+      templateBytes = new Uint8Array(await templateResponse.arrayBuffer());
+    } catch (fetchErr) {
+      console.error('Failed to load PDF template:', fetchErr);
+      return NextResponse.json({ error: 'PDF template unavailable' }, { status: 500 });
+    }
   }
-
-  const templateBytes = new Uint8Array(await templateResponse.arrayBuffer());
 
   // 8. Generate the filled PDF
   const declarationDate = beneficiaryList[0]?.declaration_date ?? null;
 
-  const pdfBytes = await generateBeneficiaryPdf({
-    templateBytes,
-    declarantFullName: `${individual.first_name} ${individual.last_name}`,
-    israeliIdNumber: individual.israeli_id_number,
-    passportNumber: individual.passport_number,
-    beneficiaries: beneficiaryList,
-    forMyself,
-    signaturePngBytes,
-    declarationDate,
-  });
+  let pdfBytes: Uint8Array;
+  try {
+    pdfBytes = await generateBeneficiaryPdf({
+      templateBytes,
+      declarantFullName: `${individual.first_name} ${individual.last_name}`,
+      israeliIdNumber: individual.israeli_id_number,
+      passportNumber: individual.passport_number,
+      beneficiaries: beneficiaryList,
+      forMyself,
+      signaturePngBytes,
+      declarationDate,
+    });
+  } catch (pdfErr) {
+    console.error('PDF generation failed:', pdfErr);
+    return NextResponse.json({ error: 'PDF generation failed' }, { status: 500 });
+  }
 
   // 9. Return as downloadable PDF
   const clientName = `${individual.first_name}_${individual.last_name}`.replace(/\s+/g, '_');
