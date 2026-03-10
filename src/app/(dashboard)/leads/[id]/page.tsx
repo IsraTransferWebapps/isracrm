@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   ArrowLeft, CheckCircle2, XCircle, RotateCcw, ShieldCheck, FileText,
-  Loader2, AlertCircle, Download,
+  Loader2, AlertCircle, Download, PenLine,
 } from 'lucide-react';
 import { formatDate } from '@/lib/format';
 import type { FormConfig } from '@/lib/form-config/types';
@@ -80,6 +80,7 @@ export default function LeadDetailPage() {
   const [fatcaData, setFatcaData] = useState<Record<string, unknown>>({});
   const [verification, setVerification] = useState<IdentityVerification | null>(null);
   const [documents, setDocuments] = useState<KycDocument[]>([]);
+  const [fatcaSignatureUrl, setFatcaSignatureUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Action state
@@ -140,7 +141,18 @@ export default function LeadDetailPage() {
       // Load form data
       if (kycCfg) setKycData(await loadFormData(supabase, kycCfg, id));
       if (benefCfg) setBeneficiaryData(await loadFormData(supabase, benefCfg, id));
-      if (fatcaCfg) setFatcaData(await loadFormData(supabase, fatcaCfg, id));
+      if (fatcaCfg) {
+        const fData = await loadFormData(supabase, fatcaCfg, id);
+        setFatcaData(fData);
+
+        // Fetch signed URL for FATCA signature image
+        if (fData.signature_image && typeof fData.signature_image === 'string') {
+          const { data: sigUrl } = await supabase.storage
+            .from('onboarding-documents')
+            .createSignedUrl(fData.signature_image, 3600);
+          if (sigUrl?.signedUrl) setFatcaSignatureUrl(sigUrl.signedUrl);
+        }
+      }
     } catch (err) {
       console.error('Failed to load lead data:', err);
     } finally {
@@ -337,7 +349,26 @@ export default function LeadDetailPage() {
       {/* FATCA / CRS */}
       <SectionCard title="Tax Declaration (FATCA/CRS)">
         {fatcaConfig && hasFatcaData ? (
-          <DynamicReviewSection config={fatcaConfig} data={fatcaData} />
+          <>
+            <DynamicReviewSection config={fatcaConfig} data={fatcaData} />
+            {fatcaSignatureUrl && (
+              <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                <div className="flex items-center gap-2 mb-2">
+                  <PenLine className="w-3.5 h-3.5 text-[#717D93]" />
+                  <p className="text-xs font-medium text-[#717D93] uppercase tracking-wider">Declaration Signature</p>
+                </div>
+                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2 inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={fatcaSignatureUrl} alt="FATCA signature" className="h-20 w-auto" />
+                </div>
+                {typeof fatcaData.declaration_date === 'string' && (
+                  <p className="text-xs text-[#94A3B8] mt-1">
+                    Signed on {new Date(fatcaData.declaration_date).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-sm text-[#94A3B8]">FATCA declaration not submitted</p>
         )}

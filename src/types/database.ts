@@ -414,6 +414,7 @@ export interface FatcaDeclaration {
   self_certification: boolean;
   declaration_date: string | null;
   signed_by: string | null;
+  signature_image: string | null;
   custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;

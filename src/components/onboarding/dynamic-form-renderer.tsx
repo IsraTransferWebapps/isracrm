@@ -27,6 +27,8 @@ interface DynamicFormRendererProps {
   stepName: string;
   /** Submit button label (defaults to "Save & Continue") */
   submitLabel?: string;
+  /** Optional content rendered between form sections and submit button (e.g. signature pad) */
+  renderBeforeSubmit?: React.ReactNode;
 }
 
 /**
@@ -43,6 +45,7 @@ export function DynamicFormRenderer({
   sessionId,
   stepName,
   submitLabel = 'Save & Continue',
+  renderBeforeSubmit,
 }: DynamicFormRendererProps) {
   const [submitting, setSubmitting] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
@@ -114,6 +117,9 @@ export function DynamicFormRenderer({
             section={section}
           />
         ))}
+
+        {/* Optional content before submit (e.g. signature pad) */}
+        {renderBeforeSubmit}
 
         {/* Validation error banner */}
         {validationError && (

@@ -18,6 +18,7 @@ import { getVerificationForClient } from '@/lib/idv/status';
 import { createClient } from '@/lib/supabase/client';
 import type { FormConfig } from '@/lib/form-config/types';
 import type { IdentityVerification } from '@/types/database';
+import { PenLine } from 'lucide-react';
 
 function ReviewContent() {
   const { session, clientId, clientType, loading } = useOnboarding();
@@ -35,6 +36,7 @@ function ReviewContent() {
   const [fatcaData, setFatcaData] = useState<Record<string, unknown>>({});
   const [verification, setVerification] = useState<IdentityVerification | null>(null);
 
+  const [fatcaSignatureUrl, setFatcaSignatureUrl] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [declared, setDeclared] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -71,6 +73,14 @@ function ReviewContent() {
       if (fatcaCfg) {
         const data = await loadFormData(supabase, fatcaCfg, clientId);
         setFatcaData(data);
+
+        // Fetch signed URL for FATCA signature image if one exists
+        if (data.signature_image && typeof data.signature_image === 'string') {
+          const { data: sigUrl } = await supabase.storage
+            .from('onboarding-documents')
+            .createSignedUrl(data.signature_image, 3600);
+          if (sigUrl?.signedUrl) setFatcaSignatureUrl(sigUrl.signedUrl);
+        }
       }
     } catch (err) {
       console.error('Failed to load review data:', err);
@@ -156,7 +166,26 @@ function ReviewContent() {
         {/* FATCA/CRS Section */}
         <SectionCard title="Tax Declaration (FATCA/CRS)" action={editButton('/portal/onboard/fatca')}>
           {fatcaConfig && hasFatcaData ? (
-            <DynamicReviewSection config={fatcaConfig} data={fatcaData} />
+            <>
+              <DynamicReviewSection config={fatcaConfig} data={fatcaData} />
+              {fatcaSignatureUrl && (
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PenLine className="w-3.5 h-3.5 text-[#717D93]" />
+                    <p className="text-xs font-medium text-[#717D93] uppercase tracking-wider">Declaration Signature</p>
+                  </div>
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-2 inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={fatcaSignatureUrl} alt="FATCA signature" className="h-20 w-auto" />
+                  </div>
+                  {typeof fatcaData.declaration_date === 'string' && (
+                    <p className="text-xs text-[#94A3B8] mt-1">
+                      Signed on {new Date(fatcaData.declaration_date).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-sm text-amber-600">FATCA declaration not completed</p>
           )}
