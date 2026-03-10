@@ -30,7 +30,7 @@ export async function GET(
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('id, role')
-    .eq('auth_user_id', user.id)
+    .eq('id', user.id)
     .single();
 
   if (!profile || (profile.role !== 'compliance_officer' && profile.role !== 'management')) {
