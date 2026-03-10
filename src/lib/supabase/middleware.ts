@@ -44,6 +44,9 @@ export async function updateSession(request: NextRequest) {
   const isPortal = isPortalHost || isPortalPath;
 
   if (isPortal) {
+    // Set pathname header so the portal layout can detect public vs authenticated pages
+    supabaseResponse.headers.set('x-pathname', pathname);
+
     // --- CLIENT PORTAL ROUTING ---
     const portalPublicPaths = ['/portal/register', '/portal/login', '/auth/callback'];
     const isPublicPath = portalPublicPaths.some((p) => pathname.startsWith(p));

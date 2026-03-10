@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import {
   Users,
+  UserPlus,
   ShieldCheck,
   LayoutDashboard,
   Search,
@@ -46,6 +47,12 @@ const NAV_ITEMS: NavItem[] = [
     href: '/clients',
     icon: Users,
     roles: ['account_manager', 'compliance_officer', 'management'],
+  },
+  {
+    label: 'Leads',
+    href: '/leads',
+    icon: UserPlus,
+    roles: ['compliance_officer', 'management'],
   },
   {
     label: 'Compliance',

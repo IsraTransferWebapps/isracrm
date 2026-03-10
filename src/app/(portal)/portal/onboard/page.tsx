@@ -32,12 +32,13 @@ export default async function OnboardingHubPage() {
     redirect('/portal/register');
   }
 
-  // If already submitted, go to confirmation
-  if (session.status === 'submitted' || session.status === 'under_review' || session.status === 'approved') {
+  // Submitted/reviewed → confirmation page
+  if (session.status === 'submitted' || session.status === 'under_review' || session.status === 'approved' || session.status === 'rejected') {
     redirect('/portal/onboard/confirmation');
   }
 
-  // Redirect to the current step
+  // Returned for corrections → re-enter onboarding at the current step (reset to kyc)
+  // In-progress → continue where they left off
   const route = STEP_ROUTES[session.current_step as OnboardingStep] || '/portal/onboard/kyc';
   redirect(route);
 }

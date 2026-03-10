@@ -100,6 +100,7 @@ export default function ClientsPage() {
         `
         )
         .is('deleted_at', null)
+        .neq('status', 'prospect')
         .order('updated_at', { ascending: false });
 
       if (data) {
@@ -179,7 +180,6 @@ export default function ClientsPage() {
           </SelectTrigger>
           <SelectContent className="bg-white border-[#E2E8F0] shadow-lg">
             <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="prospect">Prospect</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="dormant">Dormant</SelectItem>
             <SelectItem value="suspended">Suspended</SelectItem>

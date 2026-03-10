@@ -3,8 +3,8 @@ import type { UserRole } from '@/types/database';
 // Define which routes each role can access
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
   account_manager: ['/clients', '/deals', '/search', '/settings'],
-  compliance_officer: ['/clients', '/compliance', '/search', '/settings'],
-  management: ['/clients', '/deals', '/compliance', '/dashboard', '/search', '/settings'],
+  compliance_officer: ['/clients', '/leads', '/compliance', '/search', '/settings'],
+  management: ['/clients', '/leads', '/deals', '/compliance', '/dashboard', '/search', '/settings'],
 };
 
 // Check if a role can access a given path
@@ -47,6 +47,11 @@ export function canManageCompliance(role: UserRole | null): boolean {
 // Check if a role can create/book deals
 export function canManageDeals(role: UserRole | null): boolean {
   return role === 'account_manager' || role === 'management';
+}
+
+// Check if a role can review leads (compliance approval workflow)
+export function canReviewLeads(role: UserRole | null): boolean {
+  return role === 'compliance_officer' || role === 'management';
 }
 
 // Check if a role can manage onboarding form configurations

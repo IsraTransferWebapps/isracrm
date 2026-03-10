@@ -348,9 +348,12 @@ export interface OnboardingSession {
   submitted_at: string | null;
   reviewed_by: string | null;
   review_notes: string | null;
+  returned_at: string | null;
   created_at: string;
   updated_at: string;
 }
+
+export type ComplianceReviewAction = 'approve' | 'reject' | 'return';
 
 export interface KycDirector {
   id: string;

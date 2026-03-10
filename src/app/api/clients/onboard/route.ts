@@ -30,8 +30,8 @@ export async function POST() {
     return NextResponse.json({ error: 'Onboarding session not found' }, { status: 404 });
   }
 
-  if (session.status === 'submitted' || session.status === 'under_review') {
-    return NextResponse.json({ error: 'Application already submitted' }, { status: 400 });
+  if (session.status === 'submitted' || session.status === 'under_review' || session.status === 'approved' || session.status === 'rejected') {
+    return NextResponse.json({ error: 'Application cannot be resubmitted in its current state' }, { status: 400 });
   }
 
   const clientId = session.client_id;
@@ -69,15 +69,15 @@ export async function POST() {
     }
   }
 
-  // 2. At least one beneficiary
-  const { count: beneficiaryCount } = await supabase
-    .from('beneficiaries')
+  // 2. Beneficiary declaration (AML declaration)
+  const { count: beneficiaryDeclCount } = await supabase
+    .from('beneficiary_declarations')
     .select('id', { count: 'exact', head: true })
     .eq('client_id', clientId)
     .is('deleted_at', null);
 
-  if (!beneficiaryCount || beneficiaryCount < 1) {
-    errors.push('At least one beneficiary is required');
+  if (!beneficiaryDeclCount || beneficiaryDeclCount < 1) {
+    errors.push('Beneficiary declaration is required');
   }
 
   // 3. FATCA declaration
@@ -112,13 +112,16 @@ export async function POST() {
   // --- All validations passed — submit the application ---
   const now = new Date().toISOString();
 
-  // Update onboarding session status
+  // Update onboarding session status (clear review fields on re-submission)
   const { error: updateSessionErr } = await supabase
     .from('onboarding_sessions')
     .update({
       status: 'submitted',
       current_step: 'submitted',
       submitted_at: now,
+      review_notes: null,
+      returned_at: null,
+      reviewed_by: null,
     })
     .eq('id', session.id);
 
@@ -148,7 +151,7 @@ export async function POST() {
     payload: {
       submitted_at: now,
       client_type: clientType,
-      beneficiary_count: beneficiaryCount,
+      beneficiary_declaration_count: beneficiaryDeclCount,
       identity_verification_status: verification?.status || 'missing',
       aml_hit: verification?.aml_hit || false,
     },

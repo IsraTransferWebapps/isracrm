@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { AlertCircle } from 'lucide-react';
 
 interface OnboardingShellProps {
   currentStep: OnboardingStep;
@@ -24,7 +25,7 @@ interface OnboardingShellProps {
 
 export function OnboardingShell({ currentStep, title, subtitle, children }: OnboardingShellProps) {
   const router = useRouter();
-  const { signOut } = useOnboarding();
+  const { session, signOut } = useOnboarding();
 
   const { showWarning, dismissWarning } = useInactivityTimeout(
     async () => {
@@ -38,6 +39,17 @@ export function OnboardingShell({ currentStep, title, subtitle, children }: Onbo
   return (
     <div>
       <ProgressBar currentStep={currentStep} />
+
+      {/* Compliance feedback banner — shown when application was returned for corrections */}
+      {session?.status === 'returned' && session.review_notes && (
+        <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 mb-6">
+          <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium text-amber-800">Compliance Feedback</p>
+            <p className="text-sm text-amber-700 mt-0.5">{session.review_notes}</p>
+          </div>
+        </div>
+      )}
 
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-[#253859]">{title}</h1>

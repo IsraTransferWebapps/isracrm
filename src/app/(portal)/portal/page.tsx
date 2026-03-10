@@ -32,11 +32,11 @@ export default async function PortalHubPage() {
     redirect('/portal/register');
   }
 
-  // Completed onboarding → confirmation (future: /portal/account)
-  if (session.status === 'submitted' || session.status === 'under_review' || session.status === 'approved') {
+  // Completed/reviewed onboarding → confirmation page
+  if (session.status === 'submitted' || session.status === 'under_review' || session.status === 'approved' || session.status === 'rejected') {
     redirect('/portal/onboard/confirmation');
   }
 
-  // Onboarding in progress → onboarding step router
+  // Returned for corrections or still in progress → onboarding step router
   redirect('/portal/onboard');
 }
