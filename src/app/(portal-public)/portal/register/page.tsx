@@ -206,9 +206,10 @@ export default function RegisterPage() {
 
         {/* GDPR Consent */}
         <div className="space-y-1.5">
-          <div className="flex items-start gap-2">
+          <div className="flex items-start gap-3">
             <Checkbox
               id="gdpr_consent"
+              className="mt-0.5 size-5 rounded border-2 border-[#B0B8C9] data-checked:border-[#01A0FF] data-checked:bg-[#01A0FF]"
               checked={watch('gdpr_consent') === true}
               onCheckedChange={(checked) =>
                 setValue('gdpr_consent', checked === true ? true : (false as unknown as true), {
@@ -216,7 +217,7 @@ export default function RegisterPage() {
                 })
               }
             />
-            <label htmlFor="gdpr_consent" className="text-xs text-[#717D93] leading-snug cursor-pointer">
+            <label htmlFor="gdpr_consent" className="text-sm text-[#4A5568] leading-snug cursor-pointer">
               I have read and accept the{' '}
               <span className="text-[#01A0FF] underline">Privacy Notice</span>. I understand
               that IsraTransfer will collect and process my personal data as described.

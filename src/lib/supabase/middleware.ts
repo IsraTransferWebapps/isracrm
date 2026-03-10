@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
+  const pathname = request.nextUrl.pathname;
+
   let supabaseResponse = NextResponse.next({
     request,
   });
@@ -35,7 +37,6 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const hostname = request.headers.get('host') || '';
-  const pathname = request.nextUrl.pathname;
 
   // Determine if this is the client portal
   // Production: portal.isratransfer.com | Local dev: /portal/* path prefix
@@ -44,9 +45,6 @@ export async function updateSession(request: NextRequest) {
   const isPortal = isPortalHost || isPortalPath;
 
   if (isPortal) {
-    // Set pathname header so the portal layout can detect public vs authenticated pages
-    supabaseResponse.headers.set('x-pathname', pathname);
-
     // --- CLIENT PORTAL ROUTING ---
     const portalPublicPaths = ['/portal/register', '/portal/login', '/auth/callback'];
     const isPublicPath = portalPublicPaths.some((p) => pathname.startsWith(p));
