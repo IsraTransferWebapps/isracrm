@@ -80,6 +80,8 @@ export default function LeadDetailPage() {
   const [fatcaData, setFatcaData] = useState<Record<string, unknown>>({});
   const [verification, setVerification] = useState<IdentityVerification | null>(null);
   const [documents, setDocuments] = useState<KycDocument[]>([]);
+  const [beneficiarySignatureUrl, setBeneficiarySignatureUrl] = useState<string | null>(null);
+  const [beneficiarySignatureMeta, setBeneficiarySignatureMeta] = useState<{ date?: string; ip?: string; signedBy?: string }>({});
   const [fatcaSignatureUrl, setFatcaSignatureUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -140,7 +142,30 @@ export default function LeadDetailPage() {
 
       // Load form data
       if (kycCfg) setKycData(await loadFormData(supabase, kycCfg, id));
-      if (benefCfg) setBeneficiaryData(await loadFormData(supabase, benefCfg, id));
+      if (benefCfg) {
+        setBeneficiaryData(await loadFormData(supabase, benefCfg, id));
+
+        // Fetch beneficiary declaration signature
+        const { data: benefDecl } = await supabase
+          .from('beneficiary_declarations')
+          .select('signature_image, signature_ip, signed_by, declaration_date')
+          .eq('client_id', id)
+          .is('deleted_at', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (benefDecl?.signature_image) {
+          const { data: sigUrl } = await supabase.storage
+            .from('onboarding-documents')
+            .createSignedUrl(benefDecl.signature_image, 3600);
+          if (sigUrl?.signedUrl) setBeneficiarySignatureUrl(sigUrl.signedUrl);
+          setBeneficiarySignatureMeta({
+            date: benefDecl.declaration_date || undefined,
+            ip: benefDecl.signature_ip || undefined,
+            signedBy: benefDecl.signed_by || undefined,
+          });
+        }
+      }
       if (fatcaCfg) {
         const fData = await loadFormData(supabase, fatcaCfg, id);
         setFatcaData(fData);
@@ -340,7 +365,38 @@ export default function LeadDetailPage() {
       {/* Beneficiary Declaration */}
       <SectionCard title="Beneficiary Declaration">
         {beneficiaryConfig && hasBeneficiaryData ? (
-          <DynamicReviewSection config={beneficiaryConfig} data={beneficiaryData} />
+          <>
+            <DynamicReviewSection config={beneficiaryConfig} data={beneficiaryData} />
+            {beneficiarySignatureUrl && (
+              <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                <div className="flex items-center gap-2 mb-2">
+                  <PenLine className="w-3.5 h-3.5 text-[#717D93]" />
+                  <p className="text-xs font-medium text-[#717D93] uppercase tracking-wider">Declaration Signature</p>
+                </div>
+                <div className="rounded-lg border border-[#E2E8F0] bg-white p-2 inline-block">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={beneficiarySignatureUrl} alt="Beneficiary declaration signature" className="h-20 w-auto" />
+                </div>
+                <div className="mt-2 space-y-0.5">
+                  {beneficiarySignatureMeta.date && (
+                    <p className="text-xs text-[#94A3B8]">
+                      Signed on {new Date(beneficiarySignatureMeta.date).toLocaleDateString()}
+                    </p>
+                  )}
+                  {beneficiarySignatureMeta.ip && (
+                    <p className="text-xs text-[#94A3B8]">
+                      IP: {beneficiarySignatureMeta.ip}
+                    </p>
+                  )}
+                  {beneficiarySignatureMeta.signedBy && (
+                    <p className="text-xs text-[#94A3B8]">
+                      Signed by: {beneficiarySignatureMeta.signedBy}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <p className="text-sm text-[#94A3B8]">Beneficiary declaration not submitted</p>
         )}

@@ -398,6 +398,11 @@ export interface BeneficiaryDeclaration {
   address_state: string | null;
   address_zipcode: string | null;
   address_country: string | null;
+  signature_image: string | null;
+  signature_ip: string | null;
+  signature_user_agent: string | null;
+  signed_by: string | null;
+  declaration_date: string | null;
   custom_data: Record<string, unknown>;
   created_at: string;
   updated_at: string;

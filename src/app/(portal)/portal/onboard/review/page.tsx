@@ -36,6 +36,8 @@ function ReviewContent() {
   const [fatcaData, setFatcaData] = useState<Record<string, unknown>>({});
   const [verification, setVerification] = useState<IdentityVerification | null>(null);
 
+  const [beneficiarySignatureUrl, setBeneficiarySignatureUrl] = useState<string | null>(null);
+  const [beneficiarySignatureDate, setBeneficiarySignatureDate] = useState<string | null>(null);
   const [fatcaSignatureUrl, setFatcaSignatureUrl] = useState<string | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [declared, setDeclared] = useState(false);
@@ -69,6 +71,23 @@ function ReviewContent() {
       if (benefCfg) {
         const data = await loadFormData(supabase, benefCfg, clientId);
         setBeneficiaryData(data);
+
+        // Fetch signed URL for beneficiary declaration signature
+        const { data: benefDecl } = await supabase
+          .from('beneficiary_declarations')
+          .select('signature_image, declaration_date')
+          .eq('client_id', clientId)
+          .is('deleted_at', null)
+          .limit(1)
+          .maybeSingle();
+
+        if (benefDecl?.signature_image) {
+          const { data: sigUrl } = await supabase.storage
+            .from('onboarding-documents')
+            .createSignedUrl(benefDecl.signature_image, 3600);
+          if (sigUrl?.signedUrl) setBeneficiarySignatureUrl(sigUrl.signedUrl);
+          if (benefDecl.declaration_date) setBeneficiarySignatureDate(benefDecl.declaration_date);
+        }
       }
       if (fatcaCfg) {
         const data = await loadFormData(supabase, fatcaCfg, clientId);
@@ -157,7 +176,26 @@ function ReviewContent() {
         {/* Beneficiary Declaration Section */}
         <SectionCard title="Beneficiary Declaration" action={editButton('/portal/onboard/beneficiaries')}>
           {beneficiaryConfig && Object.keys(beneficiaryData).length > 0 ? (
-            <DynamicReviewSection config={beneficiaryConfig} data={beneficiaryData} />
+            <>
+              <DynamicReviewSection config={beneficiaryConfig} data={beneficiaryData} />
+              {beneficiarySignatureUrl && (
+                <div className="mt-4 pt-4 border-t border-[#E2E8F0]">
+                  <div className="flex items-center gap-2 mb-2">
+                    <PenLine className="w-3.5 h-3.5 text-[#717D93]" />
+                    <p className="text-xs font-medium text-[#717D93] uppercase tracking-wider">Declaration Signature</p>
+                  </div>
+                  <div className="rounded-lg border border-[#E2E8F0] bg-white p-2 inline-block">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={beneficiarySignatureUrl} alt="Beneficiary declaration signature" className="h-20 w-auto" />
+                  </div>
+                  {beneficiarySignatureDate && (
+                    <p className="text-xs text-[#94A3B8] mt-1">
+                      Signed on {new Date(beneficiarySignatureDate).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <p className="text-sm text-amber-600">Beneficiary declaration not completed</p>
           )}
