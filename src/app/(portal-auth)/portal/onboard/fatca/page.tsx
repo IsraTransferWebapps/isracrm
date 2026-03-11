@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
+import { useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import { DynamicFormRenderer } from '@/components/onboarding/dynamic-form-renderer';
 import { SignaturePad } from '@/components/onboarding/signature-pad';
@@ -188,10 +188,7 @@ function FatcaContent() {
   );
 }
 
+// Layout already wraps in OnboardingAuthProvider — no need to nest another one
 export default function FatcaPage() {
-  return (
-    <OnboardingAuthProvider>
-      <FatcaContent />
-    </OnboardingAuthProvider>
-  );
+  return <FatcaContent />;
 }

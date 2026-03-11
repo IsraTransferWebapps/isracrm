@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
+import { useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { DocumentUploader } from '@/components/onboarding/document-uploader';
 import { Skeleton } from '@/components/ui/skeleton';
 import { createClient } from '@/lib/supabase/client';
@@ -109,10 +109,7 @@ function DocumentsContent() {
   );
 }
 
+// Layout already wraps in OnboardingAuthProvider — no need to nest another one
 export default function PortalDocumentsPage() {
-  return (
-    <OnboardingAuthProvider>
-      <DocumentsContent />
-    </OnboardingAuthProvider>
-  );
+  return <DocumentsContent />;
 }

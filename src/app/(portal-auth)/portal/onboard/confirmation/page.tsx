@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
+import { useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { Skeleton } from '@/components/ui/skeleton';
 import { CheckCircle2, Clock, Mail, XCircle, AlertCircle } from 'lucide-react';
 
@@ -146,10 +146,7 @@ function ConfirmationContent() {
   );
 }
 
+// Layout already wraps in OnboardingAuthProvider — no need to nest another one
 export default function ConfirmationPage() {
-  return (
-    <OnboardingAuthProvider>
-      <ConfirmationContent />
-    </OnboardingAuthProvider>
-  );
+  return <ConfirmationContent />;
 }

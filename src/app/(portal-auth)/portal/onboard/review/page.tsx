@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
+import { useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import { SectionCard } from '@/components/onboarding/section-card';
 import { DynamicReviewSection } from '@/components/onboarding/dynamic-review-renderer';
@@ -307,10 +307,7 @@ function formatDocType(type: string): string {
     .join(' ');
 }
 
+// Layout already wraps in OnboardingAuthProvider — no need to nest another one
 export default function ReviewPage() {
-  return (
-    <OnboardingAuthProvider>
-      <ReviewContent />
-    </OnboardingAuthProvider>
-  );
+  return <ReviewContent />;
 }

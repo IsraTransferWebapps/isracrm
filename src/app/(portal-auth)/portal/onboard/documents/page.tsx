@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
+import { useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import { updateOnboardingStep } from '@/lib/onboarding/actions';
 import { getVerificationForClient } from '@/lib/idv/status';
@@ -309,10 +309,7 @@ function formatDocType(type: string): string {
     .join(' ');
 }
 
+// Layout already wraps in OnboardingAuthProvider — no need to nest another one
 export default function DocumentsPage() {
-  return (
-    <OnboardingAuthProvider>
-      <IdentityVerificationContent />
-    </OnboardingAuthProvider>
-  );
+  return <IdentityVerificationContent />;
 }

@@ -18,11 +18,21 @@
     X-XSS-Protection = "1; mode=block"
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; font-src 'self' data:; frame-ancestors 'none';"
 
-# Cache static assets
+# Prevent caching of HTML pages — ensures fresh content after each deploy.
+# Without this, stale HTML references old JS/CSS chunks (ChunkLoadError / unstyled pages).
+# IMPORTANT: Do NOT use "durable" here — that survives deploys and serves stale HTML.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Netlify-CDN-Cache-Control = "public, s-maxage=0, must-revalidate"
+
+# Cache static assets (JS/CSS/fonts with content hashes) — immutable forever
 [[headers]]
   for = "/_next/static/*"
   [headers.values]
     Cache-Control = "public, max-age=31536000, immutable"
+    Netlify-CDN-Cache-Control = "public, max-age=31536000, immutable, durable"
 
 # DNS: Both onboard.isratransfer.com and app.isratransfer.com
 # point to the same Netlify deployment.

@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
 import type { OnboardingSession, ClientType } from '@/types/database';
@@ -11,6 +11,7 @@ interface OnboardingAuthContextType {
   clientId: string | null;
   clientType: ClientType | null;
   loading: boolean;
+  error: string | null;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;
 }
@@ -21,57 +22,95 @@ export function OnboardingAuthProvider({ children }: { children: React.ReactNode
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<OnboardingSession | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
+  const [error, setError] = useState<string | null>(null);
+
+  // Memoize the Supabase client so the reference is stable across renders
+  const supabase = useMemo(() => createClient(), []);
 
   const fetchSession = useCallback(async (userId: string) => {
-    const { data } = await supabase
-      .from('onboarding_sessions')
-      .select('*')
-      .eq('auth_user_id', userId)
-      .single();
+    try {
+      const { data, error: queryError } = await supabase
+        .from('onboarding_sessions')
+        .select('*')
+        .eq('auth_user_id', userId)
+        .single();
 
-    setSession(data as OnboardingSession | null);
+      if (queryError) {
+        console.error('Failed to fetch onboarding session:', queryError);
+        // Don't crash — just leave session as null
+        return;
+      }
+
+      setSession(data as OnboardingSession | null);
+    } catch (err) {
+      console.error('Unexpected error fetching session:', err);
+    }
   }, [supabase]);
 
   useEffect(() => {
     let ignore = false;
 
     const initialize = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      try {
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
 
-      if (ignore) return;
+        if (ignore) return;
 
-      setUser(authUser);
-      if (authUser) {
-        await fetchSession(authUser.id);
+        if (authError) {
+          console.error('Auth getUser error:', authError);
+          setError(authError.message);
+          setLoading(false);
+          return;
+        }
+
+        setUser(authUser);
+        if (authUser) {
+          await fetchSession(authUser.id);
+        }
+      } catch (err) {
+        if (ignore) return;
+        console.error('Unexpected auth initialization error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to initialize auth');
+      } finally {
+        if (!ignore) setLoading(false);
       }
-      setLoading(false);
     };
 
     initialize();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, authSession) => {
-        if (ignore) return;
-        const authUser = authSession?.user ?? null;
-        setUser(authUser);
-        if (authUser) {
-          await fetchSession(authUser.id);
-        } else {
-          setSession(null);
+    let subscription: { unsubscribe: () => void } | null = null;
+
+    try {
+      const { data } = supabase.auth.onAuthStateChange(
+        async (_event, authSession) => {
+          if (ignore) return;
+          const authUser = authSession?.user ?? null;
+          setUser(authUser);
+          if (authUser) {
+            await fetchSession(authUser.id);
+          } else {
+            setSession(null);
+          }
+          setLoading(false);
         }
-        setLoading(false);
-      }
-    );
+      );
+      subscription = data.subscription;
+    } catch (err) {
+      console.error('Failed to set up auth listener:', err);
+    }
 
     return () => {
       ignore = true;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [supabase, fetchSession]);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
     setUser(null);
     setSession(null);
   };
@@ -90,6 +129,7 @@ export function OnboardingAuthProvider({ children }: { children: React.ReactNode
         clientId: session?.client_id ?? null,
         clientType: session?.client_type ?? null,
         loading,
+        error,
         signOut,
         refreshSession,
       }}

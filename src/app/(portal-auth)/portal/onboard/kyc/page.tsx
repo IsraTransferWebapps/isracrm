@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
+import { useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { OnboardingShell } from '@/components/onboarding/onboarding-shell';
 import { GdprNotice } from '@/components/onboarding/gdpr-notice';
 import { DynamicFormRenderer } from '@/components/onboarding/dynamic-form-renderer';
@@ -117,10 +117,7 @@ function KycPageContent() {
   );
 }
 
+// Layout already wraps in OnboardingAuthProvider — no need to nest another one
 export default function KycPage() {
-  return (
-    <OnboardingAuthProvider>
-      <KycPageContent />
-    </OnboardingAuthProvider>
-  );
+  return <KycPageContent />;
 }
