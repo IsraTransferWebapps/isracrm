@@ -29,11 +29,15 @@ import {
   Building2,
   Mail,
   ChevronLeft,
+  TrendingUp,
+  MessageCircle,
+  Send as SendIcon,
+  Save,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate, formatCurrency, formatRate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { Beneficiary, DealStatus, Email, EmailThread } from '@/types/database';
+import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, PortalMessage } from '@/types/database';
 import { BeneficiaryDialog } from '@/components/beneficiary-dialog';
 import { EmailList } from '@/components/email/email-list';
 import { EmailThread as EmailThreadView } from '@/components/email/email-thread';
@@ -95,7 +99,7 @@ function getTransferType(entry: { entry_type: string; deal_id: string | null }):
 }
 
 // ─── Tab definitions ───
-type TabId = 'overview' | 'trades' | 'transfers' | 'balances' | 'bank_details' | 'emails';
+type TabId = 'overview' | 'trades' | 'transfers' | 'balances' | 'bank_details' | 'emails' | 'margins' | 'messages';
 
 const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'overview', label: 'Overview', icon: MessageSquare },
@@ -104,6 +108,8 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'balances', label: 'Balances', icon: Wallet },
   { id: 'bank_details', label: 'Bank Details', icon: Landmark },
   { id: 'emails', label: 'Emails', icon: Mail },
+  { id: 'margins', label: 'Margins', icon: TrendingUp },
+  { id: 'messages', label: 'Messages', icon: MessageCircle },
 ];
 
 export default function ClientDetailPage() {
@@ -127,6 +133,14 @@ export default function ClientDetailPage() {
   const [selectedThread, setSelectedThread] = useState<EmailThread | null>(null);
   const [composeDialogOpen, setComposeDialogOpen] = useState(false);
   const [replyTo, setReplyTo] = useState<Email | null>(null);
+  const [marginConfigs, setMarginConfigs] = useState<ClientMarginConfig[]>([]);
+  const [marginsLoading, setMarginsLoading] = useState(false);
+  const [portalMessages, setPortalMessages] = useState<PortalMessage[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [newStaffMessage, setNewStaffMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [newMargin, setNewMargin] = useState({ currency_pair: '', margin_percentage: '' });
+  const [savingMargin, setSavingMargin] = useState(false);
   const supabase = createClient();
   const { role, profile } = useUser();
 
@@ -267,6 +281,76 @@ export default function ClientDetailPage() {
     if (activeTab !== 'emails' || emailThreads.length > 0) return;
     fetchEmailThreads();
   }, [activeTab, clientId, profile?.id]);
+
+  // Fetch margin configs when margins tab is activated
+  const fetchMarginConfigs = async () => {
+    setMarginsLoading(true);
+    const { data } = await supabase
+      .from('client_margin_configs')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('currency_pair');
+    if (data) setMarginConfigs(data as ClientMarginConfig[]);
+    setMarginsLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'margins' || marginConfigs.length > 0) return;
+    fetchMarginConfigs();
+  }, [activeTab, clientId]);
+
+  // Fetch portal messages when messages tab is activated
+  const fetchPortalMessages = async () => {
+    setMessagesLoading(true);
+    const { data } = await supabase
+      .from('portal_messages')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: true });
+    if (data) setPortalMessages(data as PortalMessage[]);
+    setMessagesLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'messages' || portalMessages.length > 0) return;
+    fetchPortalMessages();
+  }, [activeTab, clientId]);
+
+  const handleSaveMargin = async () => {
+    if (!newMargin.currency_pair || !newMargin.margin_percentage) return;
+    setSavingMargin(true);
+    await supabase.from('client_margin_configs').upsert({
+      client_id: clientId,
+      currency_pair: newMargin.currency_pair,
+      margin_percentage: parseFloat(newMargin.margin_percentage),
+      updated_by: profile?.id,
+    }, { onConflict: 'client_id,currency_pair' });
+    setNewMargin({ currency_pair: '', margin_percentage: '' });
+    setSavingMargin(false);
+    setMarginConfigs([]);
+    fetchMarginConfigs();
+  };
+
+  const handleDeleteMargin = async (id: string) => {
+    await supabase.from('client_margin_configs').delete().eq('id', id);
+    setMarginConfigs((prev) => prev.filter((m) => m.id !== id));
+  };
+
+  const handleSendStaffMessage = async () => {
+    const body = newStaffMessage.trim();
+    if (!body || !profile?.id) return;
+    setSendingMessage(true);
+    await supabase.from('portal_messages').insert({
+      client_id: clientId,
+      sender_type: 'staff',
+      sender_id: profile.id,
+      body,
+    });
+    setNewStaffMessage('');
+    setSendingMessage(false);
+    setPortalMessages([]);
+    fetchPortalMessages();
+  };
 
   const handleDeleteBeneficiary = async (id: string) => {
     if (!window.confirm('Are you sure you want to remove this bank account?')) return;
@@ -895,6 +979,153 @@ export default function ClientDetailPage() {
               fetchEmailThreads();
             }}
           />
+        </div>
+      )}
+
+      {/* ─── Margins Tab ─── */}
+      {activeTab === 'margins' && (
+        <div className="space-y-4">
+          {/* Add margin form */}
+          <div className="flex items-end gap-3 bg-[#FAFBFC] rounded-xl border border-[#E2E8F0] p-4">
+            <div className="flex-1">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8] mb-1">Currency Pair</label>
+              <select
+                value={newMargin.currency_pair}
+                onChange={(e) => setNewMargin((p) => ({ ...p, currency_pair: e.target.value }))}
+                className="w-full h-9 rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#253859]"
+              >
+                <option value="">Select pair</option>
+                {['GBP/ILS', 'GBP/USD', 'GBP/EUR', 'USD/ILS', 'USD/EUR', 'EUR/ILS', 'ILS/GBP', 'ILS/USD', 'ILS/EUR', 'USD/GBP', 'EUR/GBP', 'EUR/USD'].map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div className="w-32">
+              <label className="block text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8] mb-1">Margin %</label>
+              <input
+                type="number"
+                step="0.01"
+                value={newMargin.margin_percentage}
+                onChange={(e) => setNewMargin((p) => ({ ...p, margin_percentage: e.target.value }))}
+                placeholder="1.00"
+                className="w-full h-9 rounded-lg border border-[#E2E8F0] bg-white px-3 text-sm text-[#253859]"
+              />
+            </div>
+            <Button size="sm" onClick={handleSaveMargin} disabled={savingMargin || !newMargin.currency_pair || !newMargin.margin_percentage}>
+              <Save className="h-3.5 w-3.5 mr-1" />
+              {savingMargin ? 'Saving...' : 'Save'}
+            </Button>
+          </div>
+
+          {/* Margin configs table */}
+          {marginsLoading ? (
+            <div className="h-32 rounded-xl skeleton-brand" />
+          ) : marginConfigs.length > 0 ? (
+            <div className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow className="bg-[#FAFBFC]">
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Pair</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Margin %</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Status</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8]">Updated</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {marginConfigs.map((m) => (
+                    <TableRow key={m.id} className="hover:bg-[#FAFBFC]">
+                      <TableCell className="font-medium text-[#253859]">{m.currency_pair}</TableCell>
+                      <TableCell className="font-mono text-sm">{m.margin_percentage}%</TableCell>
+                      <TableCell>
+                        <span className={cn(
+                          'inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-medium',
+                          m.is_active ? 'bg-emerald-50 text-emerald-700' : 'bg-gray-50 text-gray-500'
+                        )}>
+                          <span className={cn('w-1.5 h-1.5 rounded-full', m.is_active ? 'bg-emerald-400' : 'bg-gray-400')} />
+                          {m.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-xs text-[#94A3B8]">{formatDate(m.updated_at)}</TableCell>
+                      <TableCell>
+                        <Button variant="ghost" size="icon-xs" onClick={() => handleDeleteMargin(m.id)} className="text-[#94A3B8] hover:text-red-600">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[#E2E8F0] bg-[#FAFBFC] p-8 text-center">
+              <TrendingUp className="h-8 w-8 text-[#E2E8F0] mx-auto mb-2" />
+              <p className="text-sm text-[#717D93]">No margin configs yet</p>
+              <p className="text-xs text-[#94A3B8] mt-1">Add a currency pair above to set custom margins for this client</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── Portal Messages Tab ─── */}
+      {activeTab === 'messages' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden flex flex-col" style={{ height: '450px' }}>
+            {/* Message List */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+              {messagesLoading ? (
+                <div className="h-32 rounded-xl skeleton-brand" />
+              ) : portalMessages.length > 0 ? (
+                portalMessages.map((msg) => {
+                  const isStaff = msg.sender_type === 'staff';
+                  return (
+                    <div key={msg.id} className={cn('flex', isStaff ? 'justify-end' : 'justify-start')}>
+                      <div className={cn(
+                        'max-w-[75%] rounded-xl px-4 py-2.5',
+                        isStaff
+                          ? 'bg-[#01A0FF] text-white rounded-br-sm'
+                          : 'bg-[#F4F5F7] text-[#253859] rounded-bl-sm'
+                      )}>
+                        <p className="text-sm whitespace-pre-wrap break-words">{msg.body}</p>
+                        <p className={cn('text-[10px] mt-1', isStaff ? 'text-white/70' : 'text-[#94A3B8]')}>
+                          {isStaff ? 'You' : 'Client'} &middot; {formatDate(msg.created_at)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <MessageCircle className="h-8 w-8 text-[#E2E8F0] mb-2" />
+                  <p className="text-sm text-[#717D93]">No portal messages</p>
+                  <p className="text-xs text-[#94A3B8] mt-1">Messages from the client portal will appear here</p>
+                </div>
+              )}
+            </div>
+
+            {/* Compose Bar */}
+            <div className="border-t border-[#E2E8F0] px-4 py-3 bg-[#FAFBFC]">
+              <div className="flex items-end gap-2">
+                <textarea
+                  value={newStaffMessage}
+                  onChange={(e) => setNewStaffMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStaffMessage(); } }}
+                  placeholder="Reply to client..."
+                  rows={1}
+                  className="flex-1 resize-none rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#253859] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#01A0FF]/20 focus:border-[#01A0FF]"
+                  style={{ maxHeight: '80px' }}
+                />
+                <Button
+                  size="sm"
+                  disabled={!newStaffMessage.trim() || sendingMessage}
+                  onClick={handleSendStaffMessage}
+                >
+                  <SendIcon className="h-3.5 w-3.5 mr-1" />
+                  Send
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

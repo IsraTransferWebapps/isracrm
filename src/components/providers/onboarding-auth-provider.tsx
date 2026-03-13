@@ -3,13 +3,16 @@
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
-import type { OnboardingSession, ClientType } from '@/types/database';
+import type { OnboardingSession, ClientType, ClientStatus } from '@/types/database';
 
 interface OnboardingAuthContextType {
   user: User | null;
   session: OnboardingSession | null;
   clientId: string | null;
   clientType: ClientType | null;
+  clientStatus: ClientStatus | null;
+  clientName: string | null;
+  accountManagerId: string | null;
   loading: boolean;
   error: string | null;
   signOut: () => Promise<void>;
@@ -21,6 +24,9 @@ const OnboardingAuthContext = createContext<OnboardingAuthContextType | undefine
 export function OnboardingAuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<OnboardingSession | null>(null);
+  const [clientStatus, setClientStatus] = useState<ClientStatus | null>(null);
+  const [clientName, setClientName] = useState<string | null>(null);
+  const [accountManagerId, setAccountManagerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -42,6 +48,40 @@ export function OnboardingAuthProvider({ children }: { children: React.ReactNode
       }
 
       setSession(data as OnboardingSession | null);
+
+      // Fetch client record for portal access gating
+      if (data?.client_id) {
+        const { data: clientData } = await supabase
+          .from('clients')
+          .select(`
+            status,
+            assigned_account_manager_id,
+            client_type,
+            individual_details (first_name, last_name, title),
+            corporate_details (company_name)
+          `)
+          .eq('id', data.client_id)
+          .single();
+
+        if (clientData) {
+          setClientStatus(clientData.status as ClientStatus);
+          setAccountManagerId(clientData.assigned_account_manager_id);
+          // Derive display name
+          if (clientData.client_type === 'corporate' && clientData.corporate_details) {
+            const corp = Array.isArray(clientData.corporate_details)
+              ? clientData.corporate_details[0]
+              : clientData.corporate_details;
+            setClientName(corp?.company_name ?? null);
+          } else if (clientData.individual_details) {
+            const ind = Array.isArray(clientData.individual_details)
+              ? clientData.individual_details[0]
+              : clientData.individual_details;
+            setClientName(
+              [ind?.title, ind?.first_name, ind?.last_name].filter(Boolean).join(' ') || null
+            );
+          }
+        }
+      }
     } catch (err) {
       console.error('Unexpected error fetching session:', err);
     }
@@ -113,6 +153,9 @@ export function OnboardingAuthProvider({ children }: { children: React.ReactNode
     }
     setUser(null);
     setSession(null);
+    setClientStatus(null);
+    setClientName(null);
+    setAccountManagerId(null);
   };
 
   const refreshSession = async () => {
@@ -128,6 +171,9 @@ export function OnboardingAuthProvider({ children }: { children: React.ReactNode
         session,
         clientId: session?.client_id ?? null,
         clientType: session?.client_type ?? null,
+        clientStatus,
+        clientName,
+        accountManagerId,
         loading,
         error,
         signOut,

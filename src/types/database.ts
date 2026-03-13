@@ -560,6 +560,49 @@ export interface CrmSyncLogEntry {
   created_at: string;
 }
 
+// --- PORTAL TYPES ---
+
+export type PortalMessageSenderType = 'client' | 'staff';
+
+export interface ClientMarginConfig {
+  id: string;
+  client_id: string;
+  currency_pair: string; // e.g. "GBP/ILS"
+  margin_percentage: number | null;
+  margin_points: number | null;
+  is_active: boolean;
+  updated_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RateQuote {
+  id: string;
+  client_id: string;
+  sell_currency: string;
+  buy_currency: string;
+  sell_amount: number; // minor units
+  buy_amount: number; // minor units
+  interbank_rate: number;
+  margin_percentage: number | null;
+  margin_points: number | null;
+  client_rate: number;
+  expires_at: string;
+  executed: boolean;
+  executed_deal_id: string | null;
+  created_at: string;
+}
+
+export interface PortalMessage {
+  id: string;
+  client_id: string;
+  sender_type: PortalMessageSenderType;
+  sender_id: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+}
+
 // --- DISPLAY HELPER: get client display name ---
 export function getClientDisplayName(client: Client): string {
   if (client.client_type === 'corporate' && client.corporate_details) {

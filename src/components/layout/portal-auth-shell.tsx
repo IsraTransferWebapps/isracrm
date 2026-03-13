@@ -1,13 +1,20 @@
 'use client';
 
 import React from 'react';
-import { OnboardingAuthProvider } from '@/components/providers/onboarding-auth-provider';
+import { OnboardingAuthProvider, useOnboarding } from '@/components/providers/onboarding-auth-provider';
 import { PortalSidebar } from './portal-sidebar';
+import { useInactivityTimeout } from '@/hooks/use-inactivity-timeout';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 /**
  * Client-side error boundary that catches render errors from child components.
- * This is needed because Next.js error.tsx only catches page-level errors,
- * not errors thrown from layout-rendered client components like this shell.
  */
 class ShellErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -63,33 +70,60 @@ class ShellErrorBoundary extends React.Component<
   }
 }
 
+/** Inner shell that has access to auth context for inactivity timeout */
+function PortalShellInner({ children }: { children: React.ReactNode }) {
+  const { signOut } = useOnboarding();
+  const { showWarning, dismissWarning } = useInactivityTimeout(signOut);
+
+  return (
+    <>
+      <PortalSidebar />
+      <div className="flex-1 flex flex-col min-w-0">
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-5xl mx-auto w-full px-4 py-8">
+            {children}
+          </div>
+        </main>
+        <footer className="border-t border-[#E2E8F0] bg-white mt-auto">
+          <div className="max-w-5xl mx-auto px-4 py-4 text-center">
+            <p className="text-[11px] text-[#94A3B8]">
+              IsraTransfer Ltd &mdash; Licence No. 57488 &mdash; Regulated by the Israel Securities Authority
+            </p>
+          </div>
+        </footer>
+      </div>
+
+      {/* Inactivity timeout warning dialog */}
+      <Dialog open={showWarning} onOpenChange={(open) => !open && dismissWarning()}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-[#253859]">Session expiring</DialogTitle>
+            <DialogDescription className="text-[#717D93]">
+              You&apos;ve been inactive for a while. For your security, you&apos;ll be signed out shortly.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 mt-4">
+            <Button variant="outline" onClick={signOut}>
+              Sign out now
+            </Button>
+            <Button onClick={dismissWarning}>
+              Stay signed in
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /**
  * Wraps authenticated portal pages with the sidebar + main content layout.
- * The OnboardingAuthProvider is needed for the sidebar's sign-out button
- * and page-level access to user/session data.
- *
- * ShellErrorBoundary catches any render errors from the provider, sidebar,
- * or child components and shows a friendly error UI instead of a blank page.
  */
 export function PortalAuthShell({ children }: { children: React.ReactNode }) {
   return (
     <ShellErrorBoundary>
       <OnboardingAuthProvider>
-        <PortalSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <main className="flex-1 overflow-y-auto">
-            <div className="max-w-3xl mx-auto w-full px-4 py-8">
-              {children}
-            </div>
-          </main>
-          <footer className="border-t border-[#E2E8F0] bg-white mt-auto">
-            <div className="max-w-3xl mx-auto px-4 py-4 text-center">
-              <p className="text-[11px] text-[#94A3B8]">
-                IsraTransfer Ltd &mdash; Licence No. 57488 &mdash; Regulated by the Israel Securities Authority
-              </p>
-            </div>
-          </footer>
-        </div>
+        <PortalShellInner>{children}</PortalShellInner>
       </OnboardingAuthProvider>
     </ShellErrorBoundary>
   );
