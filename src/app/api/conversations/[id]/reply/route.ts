@@ -70,7 +70,18 @@ export async function POST(
 
   // Route reply via original channel
   if (conversation.channel === 'whatsapp' && conversation.external_id) {
-    // TODO: Send via Twilio WhatsApp API (Phase 6)
+    try {
+      const { sendWhatsAppMessage } = await import('@/lib/messaging/twilio');
+      const sid = await sendWhatsAppMessage(conversation.external_id, messageBody);
+      // Store Twilio message SID on the message
+      await serviceClient
+        .from('messages')
+        .update({ external_message_id: sid })
+        .eq('id', message.id);
+    } catch (err) {
+      console.error('Failed to send WhatsApp message:', err);
+      // Message is saved in DB even if Twilio fails — staff can retry
+    }
   }
   // For 'live_chat' and 'portal', Supabase Realtime handles delivery
 
