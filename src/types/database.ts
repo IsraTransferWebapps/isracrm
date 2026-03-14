@@ -562,6 +562,7 @@ export interface CrmSyncLogEntry {
 
 // --- PORTAL TYPES ---
 
+/** @deprecated Use MessageSenderType from unified messaging instead */
 export type PortalMessageSenderType = 'client' | 'staff';
 
 export interface ClientMarginConfig {
@@ -593,6 +594,7 @@ export interface RateQuote {
   created_at: string;
 }
 
+/** @deprecated Use Message from unified messaging instead. portal_messages table is superseded by conversations + messages. */
 export interface PortalMessage {
   id: string;
   client_id: string;

@@ -33,11 +33,16 @@ import {
   MessageCircle,
   Send as SendIcon,
   Save,
+  FileCheck,
+  AlertTriangle,
+  Clock,
+  CheckCircle2,
+  XCircle,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate, formatCurrency, formatRate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, PortalMessage, Conversation, Message, ConversationChannel } from '@/types/database';
+import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, Conversation, Message, ConversationChannel, KycDocument } from '@/types/database';
 import { BeneficiaryDialog } from '@/components/beneficiary-dialog';
 import { EmailList } from '@/components/email/email-list';
 import { EmailThread as EmailThreadView } from '@/components/email/email-thread';
@@ -112,6 +117,169 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'messages', label: 'Messages', icon: MessageCircle },
 ];
 
+// ─── ID document types that count as "valid ID" ───
+const ID_DOCUMENT_TYPES = ['passport', 'national_id', 'driving_licence'];
+
+// ─── KYC Compliance Card ───
+function KycComplianceCard({
+  kycStatus,
+  nextReviewDate,
+  documents,
+}: {
+  kycStatus: string;
+  nextReviewDate: string | null;
+  documents: KycDocument[];
+}) {
+  const today = new Date();
+
+  // Count valid IDs: approved, not expired, and is an ID-type document
+  const validIds = documents.filter(
+    (doc) =>
+      ID_DOCUMENT_TYPES.includes(doc.document_type) &&
+      doc.status === 'approved' &&
+      (!doc.expiry_date || new Date(doc.expiry_date) > today)
+  );
+
+  // Count expiring IDs (within 90 days)
+  const expiringIds = documents.filter(
+    (doc) =>
+      ID_DOCUMENT_TYPES.includes(doc.document_type) &&
+      doc.status === 'approved' &&
+      doc.expiry_date &&
+      new Date(doc.expiry_date) > today &&
+      new Date(doc.expiry_date) <= new Date(today.getTime() + 90 * 24 * 60 * 60 * 1000)
+  );
+
+  // Calculate days until KYC review
+  const daysUntilReview = nextReviewDate
+    ? Math.ceil((new Date(nextReviewDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    : null;
+
+  // KYC review urgency colour
+  const reviewUrgency =
+    daysUntilReview === null
+      ? 'gray'
+      : daysUntilReview <= 0
+        ? 'red'
+        : daysUntilReview <= 60
+          ? 'amber'
+          : 'green';
+
+  const reviewColours = {
+    green: { bg: 'bg-[#ecfdf5]', text: 'text-[#059669]', icon: CheckCircle2 },
+    amber: { bg: 'bg-[#fffbeb]', text: 'text-[#d97706]', icon: AlertTriangle },
+    red: { bg: 'bg-[#fef2f2]', text: 'text-[#dc2626]', icon: XCircle },
+    gray: { bg: 'bg-[#F4F5F7]', text: 'text-[#717D93]', icon: Clock },
+  };
+
+  const idBadge =
+    validIds.length >= 2
+      ? { label: `${validIds.length} Valid IDs`, bg: 'bg-[#ecfdf5]', text: 'text-[#059669]', icon: CheckCircle2 }
+      : validIds.length === 1
+        ? { label: '1 Valid ID — needs 2nd', bg: 'bg-[#fffbeb]', text: 'text-[#d97706]', icon: AlertTriangle }
+        : { label: 'No Valid IDs', bg: 'bg-[#fef2f2]', text: 'text-[#dc2626]', icon: XCircle };
+
+  const IdIcon = idBadge.icon;
+  const ReviewIcon = reviewColours[reviewUrgency].icon;
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      {/* Valid ID Status */}
+      <div className={`rounded-lg p-4 ${idBadge.bg}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <IdIcon className={`h-4.5 w-4.5 ${idBadge.text}`} />
+          <span className={`text-[13px] font-semibold ${idBadge.text}`}>{idBadge.label}</span>
+        </div>
+        <div className="space-y-1.5 mt-3">
+          {validIds.length > 0 ? (
+            validIds.map((doc) => (
+              <div key={doc.id} className="flex justify-between items-center text-[12px]">
+                <span className="text-[#42526E] capitalize">{doc.document_type.replace(/_/g, ' ')}</span>
+                <span className="text-[#717D93]">
+                  {doc.expiry_date ? `Exp: ${formatDate(doc.expiry_date)}` : 'No expiry'}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-[12px] text-[#717D93]">No approved identity documents on file</p>
+          )}
+          {expiringIds.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-[#d97706]/20">
+              <span className="text-[11px] font-medium text-[#d97706]">
+                ⚠ {expiringIds.length} ID{expiringIds.length > 1 ? 's' : ''} expiring within 90 days
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* KYC Review Status */}
+      <div className={`rounded-lg p-4 ${reviewColours[reviewUrgency].bg}`}>
+        <div className="flex items-center gap-2 mb-2">
+          <ReviewIcon className={`h-4.5 w-4.5 ${reviewColours[reviewUrgency].text}`} />
+          <span className={`text-[13px] font-semibold ${reviewColours[reviewUrgency].text}`}>
+            {daysUntilReview === null
+              ? 'No review date set'
+              : daysUntilReview <= 0
+                ? 'KYC Review Overdue'
+                : `Review in ${daysUntilReview} days`}
+          </span>
+        </div>
+        <div className="space-y-1.5 mt-3">
+          <div className="flex justify-between text-[12px]">
+            <span className="text-[#717D93]">KYC Status</span>
+            <span className="text-[#42526E] capitalize font-medium">{kycStatus.replace(/_/g, ' ')}</span>
+          </div>
+          <div className="flex justify-between text-[12px]">
+            <span className="text-[#717D93]">Next Review</span>
+            <span className="text-[#42526E]">{nextReviewDate ? formatDate(nextReviewDate) : '—'}</span>
+          </div>
+          <div className="flex justify-between text-[12px]">
+            <span className="text-[#717D93]">Review Cycle</span>
+            <span className="text-[#42526E]">Every 18 months</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Document Summary */}
+      <div className="rounded-lg p-4 bg-[#F4F5F7]">
+        <div className="flex items-center gap-2 mb-2">
+          <FileCheck className="h-4.5 w-4.5 text-[#717D93]" />
+          <span className="text-[13px] font-semibold text-[#42526E]">Documents on File</span>
+        </div>
+        <div className="space-y-1.5 mt-3">
+          {(() => {
+            // Group documents by type and show count + status
+            const byType = documents.reduce<Record<string, { approved: number; pending: number; total: number }>>((acc, doc) => {
+              const type = doc.document_type;
+              if (!acc[type]) acc[type] = { approved: 0, pending: 0, total: 0 };
+              acc[type].total++;
+              if (doc.status === 'approved') acc[type].approved++;
+              if (doc.status === 'pending_review') acc[type].pending++;
+              return acc;
+            }, {});
+
+            const entries = Object.entries(byType);
+            if (entries.length === 0) {
+              return <p className="text-[12px] text-[#717D93]">No documents uploaded</p>;
+            }
+
+            return entries.map(([type, counts]) => (
+              <div key={type} className="flex justify-between items-center text-[12px]">
+                <span className="text-[#42526E] capitalize">{type.replace(/_/g, ' ')}</span>
+                <span className="text-[#717D93]">
+                  {counts.approved} approved
+                  {counts.pending > 0 && <span className="text-[#d97706]"> · {counts.pending} pending</span>}
+                </span>
+              </div>
+            ));
+          })()}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ClientDetailPage() {
   const params = useParams();
   const clientId = params.id as string;
@@ -143,6 +311,7 @@ export default function ClientDetailPage() {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [newMargin, setNewMargin] = useState({ currency_pair: '', margin_percentage: '' });
   const [savingMargin, setSavingMargin] = useState(false);
+  const [kycDocuments, setKycDocuments] = useState<KycDocument[]>([]);
   const supabase = createClient();
   const { role, profile } = useUser();
 
@@ -167,7 +336,20 @@ export default function ClientDetailPage() {
       setLoading(false);
     };
 
+    // Fetch KYC documents for the compliance card
+    const fetchKycDocs = async () => {
+      const { data } = await supabase
+        .from('kyc_documents')
+        .select('*')
+        .eq('client_id', clientId)
+        .is('deleted_at', null)
+        .order('upload_date', { ascending: false });
+
+      if (data) setKycDocuments(data);
+    };
+
     fetchClient();
+    fetchKycDocs();
   }, [clientId]);
 
   // Fetch trades (deals) when tab is activated
@@ -535,6 +717,18 @@ export default function ClientDetailPage() {
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* KYC & Compliance Card — full width row below */}
+          <div className="lg:col-span-3 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8] mb-4">
+              KYC & Compliance
+            </h2>
+            <KycComplianceCard
+              kycStatus={client.kyc_status}
+              nextReviewDate={client.next_review_date}
+              documents={kycDocuments}
+            />
           </div>
         </div>
       )}

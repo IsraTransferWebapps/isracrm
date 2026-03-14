@@ -154,6 +154,14 @@ export default function ConversationsPage() {
     }
   }, [messages]);
 
+  // --- Browser notifications ---
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   // --- Real-time subscriptions ---
 
   // Subscribe to new messages for the selected conversation
@@ -171,11 +179,31 @@ export default function ConversationsPage() {
           filter: `conversation_id=eq.${selectedId}`,
         },
         (payload) => {
+          const newMsg = payload.new as Message;
           setMessages((prev) => {
-            // Avoid duplicates (message may already be in list from optimistic add)
-            if (prev.some((m) => m.id === (payload.new as Message).id)) return prev;
-            return [...prev, payload.new as Message];
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
           });
+
+          // Browser notification for client messages when tab is not focused
+          if (
+            newMsg.sender_type === 'client' &&
+            document.hidden &&
+            'Notification' in window &&
+            Notification.permission === 'granted'
+          ) {
+            const senderName = selectedConversation
+              ? getConversationDisplayName(selectedConversation)
+              : 'Client';
+            const snippet = newMsg.body.length > 80
+              ? newMsg.body.slice(0, 80).trimEnd() + '...'
+              : newMsg.body;
+            new Notification(senderName, {
+              body: snippet,
+              icon: '/logo-isratransfer.png',
+              tag: `msg-${newMsg.id}`,
+            });
+          }
         }
       )
       .subscribe();
@@ -183,7 +211,7 @@ export default function ConversationsPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [selectedId, supabase]);
+  }, [selectedId, supabase, selectedConversation]);
 
   // Subscribe to conversation updates (new messages, status changes)
   useEffect(() => {
