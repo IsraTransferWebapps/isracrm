@@ -4,17 +4,33 @@ import { createServiceClient } from '@/lib/supabase/server';
 
 /**
  * GET /api/portal/messages
- * Fetch all messages for the authenticated client.
+ * Fetch all messages for the authenticated client's portal conversation.
  */
 export async function GET() {
   const auth = await authenticatePortalRequest();
   if (isAuthError(auth)) return auth;
 
   const serviceClient = createServiceClient();
-  const { data, error } = await serviceClient
-    .from('portal_messages')
-    .select('*')
+
+  // Find the client's portal conversation
+  const { data: conversation } = await serviceClient
+    .from('conversations')
+    .select('id')
     .eq('client_id', auth.clientId)
+    .eq('channel', 'portal')
+    .neq('status', 'closed')
+    .order('last_message_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!conversation) {
+    return NextResponse.json({ messages: [], conversationId: null });
+  }
+
+  const { data, error } = await serviceClient
+    .from('messages')
+    .select('*')
+    .eq('conversation_id', conversation.id)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -24,13 +40,13 @@ export async function GET() {
 
   // Mark unread staff messages as read
   await serviceClient
-    .from('portal_messages')
+    .from('messages')
     .update({ is_read: true })
-    .eq('client_id', auth.clientId)
+    .eq('conversation_id', conversation.id)
     .eq('sender_type', 'staff')
     .eq('is_read', false);
 
-  return NextResponse.json({ messages: data ?? [] });
+  return NextResponse.json({ messages: data ?? [], conversationId: conversation.id });
 }
 
 /**
@@ -57,22 +73,20 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Message too long (max 5000 characters)' }, { status: 400 });
   }
 
-  const serviceClient = createServiceClient();
-  const { data, error } = await serviceClient
-    .from('portal_messages')
-    .insert({
-      client_id: auth.clientId,
-      sender_type: 'client',
-      sender_id: auth.user.id,
-      body: messageBody,
-    })
-    .select()
-    .single();
+  const { findOrCreateConversation, insertMessage } = await import('@/lib/messaging/utils');
 
-  if (error) {
-    console.error('Failed to send message:', error);
-    return NextResponse.json({ error: 'Failed to send message' }, { status: 500 });
-  }
+  const conversation = await findOrCreateConversation({
+    clientId: auth.clientId,
+    channel: 'portal',
+  });
 
-  return NextResponse.json({ message: data }, { status: 201 });
+  const message = await insertMessage({
+    conversationId: conversation.id,
+    senderType: 'client',
+    senderId: auth.user.id,
+    body: messageBody,
+    channel: 'portal',
+  });
+
+  return NextResponse.json({ message }, { status: 201 });
 }

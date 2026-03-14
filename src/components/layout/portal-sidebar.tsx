@@ -57,19 +57,36 @@ export function PortalSidebar() {
   useEffect(() => {
     if (!isActive || !clientId) return;
 
+    let portalConversationId: string | null = null;
+
     const fetchUnread = async () => {
-      const { count } = await supabase
-        .from('portal_messages')
-        .select('*', { count: 'exact', head: true })
+      // Find the portal conversation for this client
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('id')
         .eq('client_id', clientId)
-        .eq('sender_type', 'staff')
-        .eq('is_read', false);
-      setUnreadMessages(count ?? 0);
+        .eq('channel', 'portal')
+        .neq('status', 'closed')
+        .limit(1)
+        .maybeSingle();
+
+      if (conv) {
+        portalConversationId = conv.id;
+        const { count } = await supabase
+          .from('messages')
+          .select('*', { count: 'exact', head: true })
+          .eq('conversation_id', conv.id)
+          .eq('sender_type', 'staff')
+          .eq('is_read', false);
+        setUnreadMessages(count ?? 0);
+      } else {
+        setUnreadMessages(0);
+      }
     };
 
     fetchUnread();
 
-    // Subscribe to new messages for real-time badge updates
+    // Subscribe to message changes for real-time badge updates
     const channel = supabase
       .channel('portal-messages-badge')
       .on(
@@ -77,10 +94,14 @@ export function PortalSidebar() {
         {
           event: '*',
           schema: 'public',
-          table: 'portal_messages',
-          filter: `client_id=eq.${clientId}`,
+          table: 'messages',
         },
-        () => fetchUnread()
+        (payload) => {
+          const row = payload.new as Record<string, unknown> | undefined;
+          if (row && row.conversation_id === portalConversationId) {
+            fetchUnread();
+          }
+        }
       )
       .subscribe();
 

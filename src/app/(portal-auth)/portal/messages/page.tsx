@@ -8,12 +8,13 @@ import { formatRelativeTime } from '@/lib/format';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import type { PortalMessage } from '@/types/database';
+import type { Message } from '@/types/database';
 
 export default function MessagesPage() {
   const { clientId, user, loading: authLoading } = useOnboarding();
   const supabase = useMemo(() => createClient(), []);
-  const [messages, setMessages] = useState<PortalMessage[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
@@ -22,29 +23,24 @@ export default function MessagesPage() {
   const fetchMessages = useCallback(async () => {
     if (!clientId) return;
 
-    const { data } = await supabase
-      .from('portal_messages')
-      .select('*')
-      .eq('client_id', clientId)
-      .order('created_at', { ascending: true });
-
-    setMessages((data as PortalMessage[]) ?? []);
+    try {
+      const res = await fetch('/api/portal/messages');
+      if (res.ok) {
+        const data = await res.json();
+        setMessages((data.messages as Message[]) ?? []);
+        if (data.conversationId) setConversationId(data.conversationId);
+      }
+    } catch (err) {
+      console.error('Failed to fetch messages:', err);
+    }
     setLoading(false);
-
-    // Mark staff messages as read
-    await supabase
-      .from('portal_messages')
-      .update({ is_read: true })
-      .eq('client_id', clientId)
-      .eq('sender_type', 'staff')
-      .eq('is_read', false);
-  }, [clientId, supabase]);
+  }, [clientId]);
 
   useEffect(() => { fetchMessages(); }, [fetchMessages]);
 
-  // Subscribe to new messages
+  // Subscribe to new messages via Supabase Realtime
   useEffect(() => {
-    if (!clientId) return;
+    if (!conversationId) return;
 
     const channel = supabase
       .channel('portal-messages')
@@ -53,17 +49,22 @@ export default function MessagesPage() {
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'portal_messages',
-          filter: `client_id=eq.${clientId}`,
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
         },
         (payload) => {
-          setMessages((prev) => [...prev, payload.new as PortalMessage]);
+          const newMsg = payload.new as Message;
+          setMessages((prev) => {
+            // Avoid duplicates
+            if (prev.some((m) => m.id === newMsg.id)) return prev;
+            return [...prev, newMsg];
+          });
         }
       )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [clientId, supabase]);
+  }, [conversationId, supabase]);
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
@@ -77,18 +78,24 @@ export default function MessagesPage() {
     setSending(true);
     setNewMessage('');
 
-    const { error } = await supabase
-      .from('portal_messages')
-      .insert({
-        client_id: clientId,
-        sender_type: 'client',
-        sender_id: user.id,
-        body,
+    try {
+      const res = await fetch('/api/portal/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
       });
 
-    if (error) {
-      console.error('Failed to send message:', error);
-      setNewMessage(body); // Restore on error
+      if (!res.ok) {
+        setNewMessage(body); // Restore on error
+      } else {
+        const data = await res.json();
+        // If we didn't have a conversationId yet, set it now
+        if (!conversationId && data.message?.conversation_id) {
+          setConversationId(data.message.conversation_id);
+        }
+      }
+    } catch {
+      setNewMessage(body);
     }
 
     setSending(false);
@@ -123,6 +130,18 @@ export default function MessagesPage() {
           {messages.length > 0 ? (
             messages.map((msg) => {
               const isClient = msg.sender_type === 'client';
+              const isSystem = msg.sender_type === 'system' || msg.sender_type === 'bot';
+
+              if (isSystem) {
+                return (
+                  <div key={msg.id} className="flex justify-center">
+                    <div className="bg-[#F4F5F7] rounded-lg px-3 py-1.5 text-xs text-[#94A3B8]">
+                      {msg.body}
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div
                   key={msg.id}
