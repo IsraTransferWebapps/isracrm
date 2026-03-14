@@ -152,7 +152,7 @@ export async function matchVisitorToClient(email: string) {
     .from('clients')
     .select('id, assigned_account_manager_id')
     .or(
-      `individual_details->>primary_email.ilike.${normalised},individual_details->>secondary_email.ilike.${normalised}`
+      `individual_details->>email_primary.ilike.${normalised},individual_details->>email_secondary.ilike.${normalised}`
     )
     .limit(1)
     .maybeSingle();
