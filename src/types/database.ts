@@ -603,6 +603,52 @@ export interface PortalMessage {
   created_at: string;
 }
 
+// --- UNIFIED MESSAGING ---
+
+export type ConversationChannel = 'whatsapp' | 'live_chat' | 'portal';
+export type ConversationStatus = 'open' | 'waiting_on_client' | 'waiting_on_staff' | 'closed';
+export type MessageSenderType = 'client' | 'staff' | 'system' | 'bot';
+
+export interface Conversation {
+  id: string;
+  client_id: string | null;
+  channel: ConversationChannel;
+  status: ConversationStatus;
+  assigned_to: string | null;
+  external_id: string | null;
+  visitor_name: string | null;
+  visitor_email: string | null;
+  last_message_at: string;
+  unread_count: number;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  // Joined fields
+  client?: Client | null;
+  assigned_staff?: UserProfile | null;
+  last_message?: Message | null;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_type: MessageSenderType;
+  sender_id: string | null;
+  body: string;
+  channel: ConversationChannel;
+  external_message_id: string | null;
+  attachments: MessageAttachment[];
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface MessageAttachment {
+  url: string;
+  filename: string;
+  type: string;
+  size: number;
+}
+
 // --- DISPLAY HELPER: get client display name ---
 export function getClientDisplayName(client: Client): string {
   if (client.client_type === 'corporate' && client.corporate_details) {
