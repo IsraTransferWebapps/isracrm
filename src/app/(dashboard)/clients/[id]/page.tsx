@@ -37,7 +37,7 @@ import {
 import Link from 'next/link';
 import { formatDate, formatCurrency, formatRate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, PortalMessage } from '@/types/database';
+import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, PortalMessage, Conversation, Message, ConversationChannel } from '@/types/database';
 import { BeneficiaryDialog } from '@/components/beneficiary-dialog';
 import { EmailList } from '@/components/email/email-list';
 import { EmailThread as EmailThreadView } from '@/components/email/email-thread';
@@ -135,7 +135,9 @@ export default function ClientDetailPage() {
   const [replyTo, setReplyTo] = useState<Email | null>(null);
   const [marginConfigs, setMarginConfigs] = useState<ClientMarginConfig[]>([]);
   const [marginsLoading, setMarginsLoading] = useState(false);
-  const [portalMessages, setPortalMessages] = useState<PortalMessage[]>([]);
+  const [clientConversations, setClientConversations] = useState<Conversation[]>([]);
+  const [selectedConvMessages, setSelectedConvMessages] = useState<Message[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [newStaffMessage, setNewStaffMessage] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -299,21 +301,38 @@ export default function ClientDetailPage() {
     fetchMarginConfigs();
   }, [activeTab, clientId]);
 
-  // Fetch portal messages when messages tab is activated
-  const fetchPortalMessages = async () => {
+  // Fetch client conversations when messages tab is activated
+  const fetchClientConversations = async () => {
     setMessagesLoading(true);
     const { data } = await supabase
-      .from('portal_messages')
+      .from('conversations')
       .select('*')
       .eq('client_id', clientId)
-      .order('created_at', { ascending: true });
-    if (data) setPortalMessages(data as PortalMessage[]);
+      .neq('status', 'closed')
+      .order('last_message_at', { ascending: false });
+    if (data) {
+      setClientConversations(data as Conversation[]);
+      // Auto-select first conversation
+      if (data.length > 0 && !selectedConversationId) {
+        setSelectedConversationId(data[0].id);
+        fetchConversationMessages(data[0].id);
+      }
+    }
     setMessagesLoading(false);
   };
 
+  const fetchConversationMessages = async (convId: string) => {
+    const { data } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', convId)
+      .order('created_at', { ascending: true });
+    if (data) setSelectedConvMessages(data as Message[]);
+  };
+
   useEffect(() => {
-    if (activeTab !== 'messages' || portalMessages.length > 0) return;
-    fetchPortalMessages();
+    if (activeTab !== 'messages' || clientConversations.length > 0) return;
+    fetchClientConversations();
   }, [activeTab, clientId]);
 
   const handleSaveMargin = async () => {
@@ -338,18 +357,21 @@ export default function ClientDetailPage() {
 
   const handleSendStaffMessage = async () => {
     const body = newStaffMessage.trim();
-    if (!body || !profile?.id) return;
+    if (!body || !selectedConversationId) return;
     setSendingMessage(true);
-    await supabase.from('portal_messages').insert({
-      client_id: clientId,
-      sender_type: 'staff',
-      sender_id: profile.id,
-      body,
-    });
-    setNewStaffMessage('');
-    setSendingMessage(false);
-    setPortalMessages([]);
-    fetchPortalMessages();
+    try {
+      const res = await fetch(`/api/conversations/${selectedConversationId}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body }),
+      });
+      if (res.ok) {
+        setNewStaffMessage('');
+        fetchConversationMessages(selectedConversationId);
+      }
+    } finally {
+      setSendingMessage(false);
+    }
   };
 
   const handleDeleteBeneficiary = async (id: string) => {
@@ -1067,17 +1089,62 @@ export default function ClientDetailPage() {
         </div>
       )}
 
-      {/* ─── Portal Messages Tab ─── */}
+      {/* ─── Messages Tab (Unified Conversations) ─── */}
       {activeTab === 'messages' && (
         <div className="space-y-4">
+          {/* Conversation selector (if multiple) */}
+          {clientConversations.length > 1 && (
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {clientConversations.map((conv) => {
+                const channelConfig: Record<ConversationChannel, { icon: React.ElementType; color: string; label: string }> = {
+                  whatsapp: { icon: MessageCircle, color: '#25D366', label: 'WhatsApp' },
+                  live_chat: { icon: MessageSquare, color: '#01A0FF', label: 'Live Chat' },
+                  portal: { icon: Mail, color: '#8B5CF6', label: 'Portal' },
+                };
+                const cfg = channelConfig[conv.channel];
+                const Icon = cfg.icon;
+                return (
+                  <button
+                    key={conv.id}
+                    onClick={() => { setSelectedConversationId(conv.id); fetchConversationMessages(conv.id); }}
+                    className={cn(
+                      'flex items-center gap-2 px-3 py-2 rounded-lg border text-sm whitespace-nowrap transition-colors',
+                      selectedConversationId === conv.id
+                        ? 'border-[#01A0FF] bg-[#EFF8FF] text-[#01A0FF]'
+                        : 'border-[#E2E8F0] bg-white text-[#717D93] hover:bg-[#F9FAFB]'
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" style={{ color: cfg.color }} />
+                    {cfg.label}
+                    {conv.unread_count > 0 && (
+                      <span className="ml-1 w-5 h-5 rounded-full bg-[#EF4444] text-white text-[10px] flex items-center justify-center">
+                        {conv.unread_count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden flex flex-col" style={{ height: '450px' }}>
             {/* Message List */}
             <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
               {messagesLoading ? (
                 <div className="h-32 rounded-xl skeleton-brand" />
-              ) : portalMessages.length > 0 ? (
-                portalMessages.map((msg) => {
+              ) : selectedConvMessages.length > 0 ? (
+                selectedConvMessages.map((msg) => {
                   const isStaff = msg.sender_type === 'staff';
+                  const isSystem = msg.sender_type === 'system' || msg.sender_type === 'bot';
+                  if (isSystem) {
+                    return (
+                      <div key={msg.id} className="flex justify-center">
+                        <div className="bg-[#F4F5F7] rounded-lg px-3 py-1.5 text-xs text-[#94A3B8]">
+                          {msg.body}
+                        </div>
+                      </div>
+                    );
+                  }
                   return (
                     <div key={msg.id} className={cn('flex', isStaff ? 'justify-end' : 'justify-start')}>
                       <div className={cn(
@@ -1094,37 +1161,44 @@ export default function ClientDetailPage() {
                     </div>
                   );
                 })
+              ) : clientConversations.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <MessageCircle className="h-8 w-8 text-[#E2E8F0] mb-2" />
+                  <p className="text-sm text-[#717D93]">No conversations</p>
+                  <p className="text-xs text-[#94A3B8] mt-1">Messages from all channels will appear here</p>
+                </div>
               ) : (
                 <div className="flex flex-col items-center justify-center h-full text-center">
                   <MessageCircle className="h-8 w-8 text-[#E2E8F0] mb-2" />
-                  <p className="text-sm text-[#717D93]">No portal messages</p>
-                  <p className="text-xs text-[#94A3B8] mt-1">Messages from the client portal will appear here</p>
+                  <p className="text-sm text-[#717D93]">No messages in this conversation</p>
                 </div>
               )}
             </div>
 
             {/* Compose Bar */}
-            <div className="border-t border-[#E2E8F0] px-4 py-3 bg-[#FAFBFC]">
-              <div className="flex items-end gap-2">
-                <textarea
-                  value={newStaffMessage}
-                  onChange={(e) => setNewStaffMessage(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStaffMessage(); } }}
-                  placeholder="Reply to client..."
-                  rows={1}
-                  className="flex-1 resize-none rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#253859] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#01A0FF]/20 focus:border-[#01A0FF]"
-                  style={{ maxHeight: '80px' }}
-                />
-                <Button
-                  size="sm"
-                  disabled={!newStaffMessage.trim() || sendingMessage}
-                  onClick={handleSendStaffMessage}
-                >
-                  <SendIcon className="h-3.5 w-3.5 mr-1" />
-                  Send
-                </Button>
+            {selectedConversationId && (
+              <div className="border-t border-[#E2E8F0] px-4 py-3 bg-[#FAFBFC]">
+                <div className="flex items-end gap-2">
+                  <textarea
+                    value={newStaffMessage}
+                    onChange={(e) => setNewStaffMessage(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendStaffMessage(); } }}
+                    placeholder="Reply to client..."
+                    rows={1}
+                    className="flex-1 resize-none rounded-lg border border-[#E2E8F0] bg-white px-3 py-2 text-sm text-[#253859] placeholder:text-[#94A3B8] focus:outline-none focus:ring-2 focus:ring-[#01A0FF]/20 focus:border-[#01A0FF]"
+                    style={{ maxHeight: '80px' }}
+                  />
+                  <Button
+                    size="sm"
+                    disabled={!newStaffMessage.trim() || sendingMessage}
+                    onClick={handleSendStaffMessage}
+                  >
+                    <SendIcon className="h-3.5 w-3.5 mr-1" />
+                    Send
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
