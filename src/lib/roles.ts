@@ -2,9 +2,9 @@ import type { UserRole } from '@/types/database';
 
 // Define which routes each role can access
 export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  account_manager: ['/clients', '/deals', '/search', '/settings'],
-  compliance_officer: ['/clients', '/leads', '/compliance', '/search', '/settings'],
-  management: ['/clients', '/leads', '/deals', '/compliance', '/dashboard', '/search', '/settings'],
+  account_manager: ['/clients', '/conversations', '/deals', '/search', '/settings'],
+  compliance_officer: ['/clients', '/conversations', '/leads', '/compliance', '/search', '/settings'],
+  management: ['/clients', '/conversations', '/leads', '/deals', '/compliance', '/dashboard', '/search', '/settings'],
 };
 
 // Check if a role can access a given path

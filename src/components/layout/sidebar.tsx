@@ -8,6 +8,7 @@ import {
   UserPlus,
   ShieldCheck,
   LayoutDashboard,
+  MessageSquare,
   Search,
   Settings,
   LogOut,
@@ -24,7 +25,8 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import type { UserRole } from '@/types/database';
 
 interface NavItem {
@@ -47,6 +49,12 @@ const NAV_ITEMS: NavItem[] = [
     href: '/clients',
     icon: Users,
     roles: ['account_manager', 'compliance_officer', 'management'],
+  },
+  {
+    label: 'Conversations',
+    href: '/conversations',
+    icon: MessageSquare,
+    roles: ['account_manager', 'compliance_officer', 'management'] as UserRole[],
   },
   {
     label: 'Leads',
@@ -76,11 +84,53 @@ const NAV_ITEMS: NavItem[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { profile, role, signOut } = useUser();
+  const { user, profile, role, signOut } = useUser();
   const [collapsed, setCollapsed] = useState(false);
+  const [unreadConversations, setUnreadConversations] = useState(0);
+
+  // Fetch unread conversation count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!user?.id) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from('conversations')
+      .select('unread_count')
+      .or(`assigned_to.eq.${user.id},assigned_to.is.null`)
+      .neq('status', 'closed');
+    if (data) {
+      const total = data.reduce((sum, row) => sum + (row.unread_count || 0), 0);
+      setUnreadConversations(total);
+    }
+  }, [user?.id]);
+
+  // Initial fetch and realtime subscription for conversation changes
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchUnreadCount();
+
+    const supabase = createClient();
+    const channel = supabase
+      .channel('sidebar-conversations')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'conversations' },
+        () => {
+          fetchUnreadCount();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user?.id, fetchUnreadCount]);
 
   const visibleItems = NAV_ITEMS.filter(
     (item) => role && item.roles.includes(role)
+  ).map((item) =>
+    item.href === '/conversations'
+      ? { ...item, badge: unreadConversations }
+      : item
   );
 
   const initials = profile?.full_name
