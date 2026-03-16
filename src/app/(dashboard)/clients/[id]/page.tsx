@@ -43,8 +43,9 @@ import {
 import Link from 'next/link';
 import { formatDate, formatCurrency, formatRate } from '@/lib/format';
 import { cn } from '@/lib/utils';
-import { canEditClientAdmin } from '@/lib/roles';
-import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, Conversation, Message, ConversationChannel, KycDocument } from '@/types/database';
+import { canEditClientAdmin, canApproveWithdrawals } from '@/lib/roles';
+import { logAuditEvent } from '@/lib/audit';
+import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, Conversation, Message, ConversationChannel, KycDocument, AuditTrailEntry } from '@/types/database';
 import { BeneficiaryDialog } from '@/components/beneficiary-dialog';
 import { EmailList } from '@/components/email/email-list';
 import { EmailThread as EmailThreadView } from '@/components/email/email-thread';
@@ -125,6 +126,22 @@ const TABS: { id: TabId; label: string; icon: React.ElementType }[] = [
   { id: 'margins', label: 'Margins', icon: TrendingUp },
   { id: 'messages', label: 'Messages', icon: MessageCircle },
 ];
+
+// ─── Audit action labels ───
+function formatAuditAction(action: string): string {
+  const labels: Record<string, string> = {
+    importance_changed: 'changed importance',
+    salesperson_changed: 'changed salesperson',
+    account_manager_changed: 'changed account manager',
+    deposit_recorded: 'recorded a deposit',
+    withdrawal_recorded: 'recorded a withdrawal',
+    withdrawal_approved: 'approved a withdrawal',
+    withdrawal_rejected: 'rejected a withdrawal',
+    status_changed: 'changed status',
+    kyc_status_changed: 'changed KYC status',
+  };
+  return labels[action] || action.replace(/_/g, ' ');
+}
 
 // ─── ID document types that count as "valid ID" ───
 const ID_DOCUMENT_TYPES = ['passport', 'national_id', 'driving_licence'];
@@ -322,6 +339,9 @@ export default function ClientDetailPage() {
   const [savingMargin, setSavingMargin] = useState(false);
   const [kycDocuments, setKycDocuments] = useState<KycDocument[]>([]);
   const [adminEditOpen, setAdminEditOpen] = useState(false);
+  const [transfersSubTab, setTransfersSubTab] = useState<'deposits' | 'withdrawals'>('deposits');
+  const [auditTrail, setAuditTrail] = useState<AuditTrailEntry[]>([]);
+  const [auditLoading, setAuditLoading] = useState(false);
   const supabase = createClient();
   const { role, profile } = useUser();
 
@@ -359,8 +379,23 @@ export default function ClientDetailPage() {
       if (data) setKycDocuments(data);
     };
 
+    // Fetch audit trail for activity feed
+    const fetchAuditTrail = async () => {
+      setAuditLoading(true);
+      const { data } = await supabase
+        .from('audit_trail')
+        .select('*, performer:user_profiles!audit_trail_performed_by_fkey(full_name, email)')
+        .eq('entity_type', 'client')
+        .eq('entity_id', clientId)
+        .order('performed_at', { ascending: false })
+        .limit(50);
+      if (data) setAuditTrail(data as AuditTrailEntry[]);
+      setAuditLoading(false);
+    };
+
     fetchClient();
     fetchKycDocs();
+    fetchAuditTrail();
   }, [clientId]);
 
   // Fetch trades (deals) when tab is activated
@@ -391,7 +426,7 @@ export default function ClientDetailPage() {
       setTransfersLoading(true);
       const { data } = await supabase
         .from('ledger_entries')
-        .select('*')
+        .select('*, approver:user_profiles!ledger_entries_compliance_approved_by_fkey(full_name)')
         .eq('client_id', clientId)
         .order('created_at', { ascending: false });
 
@@ -763,6 +798,40 @@ export default function ClientDetailPage() {
               documents={kycDocuments}
             />
           </div>
+
+          {/* Activity Feed */}
+          <div className="lg:col-span-3 rounded-xl border border-[#E2E8F0] bg-white p-5 shadow-sm">
+            <h2 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#94A3B8] mb-4">
+              Recent Activity
+            </h2>
+            {auditLoading ? (
+              <p className="text-[13px] text-[#717D93]">Loading...</p>
+            ) : auditTrail.length === 0 ? (
+              <p className="text-[13px] text-[#717D93]">No activity recorded yet</p>
+            ) : (
+              <div className="space-y-3">
+                {auditTrail.map((entry) => (
+                  <div key={entry.id} className="flex items-start gap-3 py-2 border-b border-[#E2E8F0] last:border-0">
+                    <div className="w-2 h-2 rounded-full bg-[#01A0FF] mt-1.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] text-[#253859]">
+                        <span className="font-medium">{entry.performer?.full_name || 'System'}</span>
+                        {' '}
+                        {formatAuditAction(entry.action)}
+                        {entry.old_value && entry.new_value && (
+                          <span className="text-[#717D93]"> from <span className="font-medium">{entry.old_value}</span> to <span className="font-medium">{entry.new_value}</span></span>
+                        )}
+                        {!entry.old_value && entry.new_value && (
+                          <span className="text-[#717D93]"> to <span className="font-medium">{entry.new_value}</span></span>
+                        )}
+                      </p>
+                      <p className="text-[11px] text-[#94A3B8] mt-0.5">{formatDate(entry.performed_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -824,62 +893,211 @@ export default function ClientDetailPage() {
       )}
 
       {activeTab === 'transfers' && (
-        <div className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden shadow-sm">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-[#E2E8F0] hover:bg-transparent bg-[#FAFBFC]">
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Date</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Type</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Currency</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] text-right">Amount</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Reference</TableHead>
-                <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8] text-right">Running Balance</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {transfersLoading ? (
-                [...Array(5)].map((_, i) => (
-                  <TableRow key={i} className="border-[#E2E8F0]">
-                    {[...Array(6)].map((_, j) => (
-                      <TableCell key={j}>
-                        <div className="h-4 rounded skeleton-brand" style={{ animationDelay: `${(i * 6 + j) * 30}ms` }} />
-                      </TableCell>
-                    ))}
+        <div className="space-y-4">
+          {/* Sub-tab toggle */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTransfersSubTab('deposits')}
+              className={cn(
+                'px-4 py-2 rounded-lg text-[13px] font-medium transition-all',
+                transfersSubTab === 'deposits'
+                  ? 'bg-[#01A0FF] text-white shadow-sm'
+                  : 'bg-[#F4F5F7] text-[#717D93] hover:bg-[#E2E8F0]'
+              )}
+            >
+              Deposits
+            </button>
+            <button
+              onClick={() => setTransfersSubTab('withdrawals')}
+              className={cn(
+                'px-4 py-2 rounded-lg text-[13px] font-medium transition-all',
+                transfersSubTab === 'withdrawals'
+                  ? 'bg-[#01A0FF] text-white shadow-sm'
+                  : 'bg-[#F4F5F7] text-[#717D93] hover:bg-[#E2E8F0]'
+              )}
+            >
+              Withdrawals
+            </button>
+          </div>
+
+          {/* Deposits Section */}
+          {transfersSubTab === 'deposits' && (
+            <div className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-[#E2E8F0] hover:bg-transparent bg-[#FAFBFC]">
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Date</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Amount</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Receiving Bank</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Takbul No.</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Sender</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Reference</TableHead>
                   </TableRow>
-                ))
-              ) : transfers.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-16">
-                    <RefreshCw className="h-10 w-10 text-[#E2E8F0] mx-auto mb-3" />
-                    <p className="text-[#717D93] font-medium text-[14px]">No transfers yet</p>
-                    <p className="text-[13px] text-[#94A3B8] mt-1">Transfers will appear here when funds are received or sent</p>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                transfers.map((entry) => {
-                  const tType = getTransferType(entry);
-                  const style = TRANSFER_STYLES[tType] || TRANSFER_STYLES.trade;
-                  const isCredit = entry.entry_type === 'funds_received';
-                  return (
-                    <TableRow key={entry.id} className="border-[#E2E8F0] table-row-hover">
-                      <TableCell className="text-[#717D93] text-[12px]">{formatDate(entry.value_date || entry.created_at)}</TableCell>
-                      <TableCell>
-                        <StatusPill bg={style.bg} text={style.text} dot={style.dot} label={style.label} />
-                      </TableCell>
-                      <TableCell className="font-mono text-[12px] text-[#253859] font-medium">{entry.currency}</TableCell>
-                      <TableCell className={`font-mono text-[12px] text-right ${isCredit ? 'text-[#059669]' : 'text-[#dc2626]'}`}>
-                        {isCredit ? '+' : '−'}{formatCurrency(Math.abs(entry.amount), entry.currency)}
-                      </TableCell>
-                      <TableCell className="text-[11px] text-[#94A3B8] max-w-[200px] truncate">{entry.notes || '—'}</TableCell>
-                      <TableCell className="font-mono text-[12px] text-[#42526E] text-right">
-                        {formatCurrency(entry.running_balance, entry.currency)}
+                </TableHeader>
+                <TableBody>
+                  {transfersLoading ? (
+                    [...Array(3)].map((_, i) => (
+                      <TableRow key={i} className="border-[#E2E8F0]">
+                        {[...Array(6)].map((_, j) => (
+                          <TableCell key={j}>
+                            <div className="h-4 rounded skeleton-brand" style={{ animationDelay: `${(i * 6 + j) * 30}ms` }} />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : transfers.filter(e => e.entry_type === 'funds_received').length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-16">
+                        <RefreshCw className="h-10 w-10 text-[#E2E8F0] mx-auto mb-3" />
+                        <p className="text-[#717D93] font-medium text-[14px]">No deposits yet</p>
+                        <p className="text-[13px] text-[#94A3B8] mt-1">Deposits will appear here when funds are received</p>
                       </TableCell>
                     </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+                  ) : (
+                    transfers
+                      .filter(e => e.entry_type === 'funds_received')
+                      .map((entry) => (
+                        <TableRow key={entry.id} className="border-[#E2E8F0] table-row-hover">
+                          <TableCell className="text-[#717D93] text-[12px]">{formatDate(entry.value_date || entry.created_at)}</TableCell>
+                          <TableCell className="font-mono text-[12px] text-[#059669] font-medium">
+                            +{formatCurrency(Math.abs(entry.amount), entry.currency)}
+                          </TableCell>
+                          <TableCell className="text-[12px] text-[#42526E]">
+                            {entry.receiving_bank ? entry.receiving_bank.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()) : '—'}
+                          </TableCell>
+                          <TableCell className="font-mono text-[12px] text-[#42526E]">{entry.takbul_number || '—'}</TableCell>
+                          <TableCell className="text-[12px] text-[#42526E] max-w-[200px]">
+                            {entry.sender_bank_name ? (
+                              <span title={entry.sender_iban || ''}>
+                                {entry.sender_bank_name}
+                                {entry.sender_iban && <span className="text-[#94A3B8] ml-1">({entry.sender_iban.slice(-8)})</span>}
+                              </span>
+                            ) : '—'}
+                          </TableCell>
+                          <TableCell className="text-[11px] text-[#94A3B8] max-w-[150px] truncate">{entry.notes || '—'}</TableCell>
+                        </TableRow>
+                      ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {/* Withdrawals Section */}
+          {transfersSubTab === 'withdrawals' && (
+            <div className="rounded-xl border border-[#E2E8F0] bg-white overflow-hidden shadow-sm">
+              <Table>
+                <TableHeader>
+                  <TableRow className="border-[#E2E8F0] hover:bg-transparent bg-[#FAFBFC]">
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Date</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Amount</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Compliance</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Approved By</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Reference</TableHead>
+                    <TableHead className="text-[11px] font-semibold uppercase tracking-wider text-[#94A3B8]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transfersLoading ? (
+                    [...Array(3)].map((_, i) => (
+                      <TableRow key={i} className="border-[#E2E8F0]">
+                        {[...Array(6)].map((_, j) => (
+                          <TableCell key={j}>
+                            <div className="h-4 rounded skeleton-brand" style={{ animationDelay: `${(i * 6 + j) * 30}ms` }} />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))
+                  ) : transfers.filter(e => e.entry_type === 'funds_sent').length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-16">
+                        <RefreshCw className="h-10 w-10 text-[#E2E8F0] mx-auto mb-3" />
+                        <p className="text-[#717D93] font-medium text-[14px]">No withdrawals yet</p>
+                        <p className="text-[13px] text-[#94A3B8] mt-1">Withdrawals will appear here when funds are sent</p>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    transfers
+                      .filter(e => e.entry_type === 'funds_sent')
+                      .map((entry) => {
+                        const complianceStyles: Record<string, { bg: string; text: string; dot: string }> = {
+                          pending: { bg: 'bg-[#F4F5F7]', text: 'text-[#717D93]', dot: 'bg-[#94A3B8]' },
+                          approved: { bg: 'bg-[#ecfdf5]', text: 'text-[#059669]', dot: 'bg-[#10b981]' },
+                          rejected: { bg: 'bg-[#fef2f2]', text: 'text-[#dc2626]', dot: 'bg-[#ef4444]' },
+                        };
+                        const cStatus = entry.compliance_status || 'pending';
+                        return (
+                          <TableRow key={entry.id} className="border-[#E2E8F0] table-row-hover">
+                            <TableCell className="text-[#717D93] text-[12px]">{formatDate(entry.value_date || entry.created_at)}</TableCell>
+                            <TableCell className="font-mono text-[12px] text-[#dc2626] font-medium">
+                              −{formatCurrency(Math.abs(entry.amount), entry.currency)}
+                            </TableCell>
+                            <TableCell>
+                              <StatusPill {...complianceStyles[cStatus]} label={cStatus} />
+                            </TableCell>
+                            <TableCell className="text-[12px] text-[#42526E]">
+                              {entry.approver?.full_name || '—'}
+                            </TableCell>
+                            <TableCell className="text-[11px] text-[#94A3B8] max-w-[150px] truncate">{entry.notes || '—'}</TableCell>
+                            <TableCell>
+                              {canApproveWithdrawals(role) && cStatus === 'pending' && (
+                                <div className="flex gap-1">
+                                  <Button
+                                    size="sm"
+                                    onClick={async () => {
+                                      await supabase.from('ledger_entries').update({
+                                        compliance_status: 'approved',
+                                        compliance_approved_by: profile?.id,
+                                        compliance_approved_at: new Date().toISOString(),
+                                      }).eq('id', entry.id);
+                                      await logAuditEvent({
+                                        entityType: 'ledger_entry',
+                                        entityId: entry.id,
+                                        action: 'withdrawal_approved',
+                                        oldValue: 'pending',
+                                        newValue: 'approved',
+                                        performedBy: profile?.id || '',
+                                      });
+                                      setTransfers([]);
+                                    }}
+                                    className="bg-[#059669] hover:bg-[#047857] text-white h-6 text-[11px] px-2"
+                                  >
+                                    Approve
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={async () => {
+                                      await supabase.from('ledger_entries').update({
+                                        compliance_status: 'rejected',
+                                        compliance_approved_by: profile?.id,
+                                        compliance_approved_at: new Date().toISOString(),
+                                      }).eq('id', entry.id);
+                                      await logAuditEvent({
+                                        entityType: 'ledger_entry',
+                                        entityId: entry.id,
+                                        action: 'withdrawal_rejected',
+                                        oldValue: 'pending',
+                                        newValue: 'rejected',
+                                        performedBy: profile?.id || '',
+                                      });
+                                      setTransfers([]);
+                                    }}
+                                    className="border-[#dc2626] text-[#dc2626] hover:bg-[#fef2f2] h-6 text-[11px] px-2"
+                                  >
+                                    Reject
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </div>
       )}
 
