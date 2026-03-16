@@ -75,6 +75,12 @@ const KYC_MAP: Record<string, { bg: string; text: string; dot: string }> = {
   rejected: { bg: 'bg-[#fef2f2]', text: 'text-[#dc2626]', dot: 'bg-[#ef4444]' },
 };
 
+const IMPORTANCE_MAP: Record<string, { bg: string; text: string; dot: string }> = {
+  regular: { bg: 'bg-[#F4F5F7]', text: 'text-[#717D93]', dot: 'bg-[#CBD5E1]' },
+  vip: { bg: 'bg-[#fffbeb]', text: 'text-[#d97706]', dot: 'bg-[#f59e0b]' },
+  vvip: { bg: 'bg-[#f5f3ff]', text: 'text-[#7c3aed]', dot: 'bg-[#8b5cf6]' },
+};
+
 const RISK_MAP: Record<string, { bg: string; text: string; dot: string }> = {
   low: { bg: 'bg-[#ecfdf5]', text: 'text-[#059669]', dot: 'bg-[#10b981]' },
   medium: { bg: 'bg-[#fffbeb]', text: 'text-[#d97706]', dot: 'bg-[#f59e0b]' },
@@ -326,7 +332,8 @@ export default function ClientDetailPage() {
           *,
           individual_details (*),
           corporate_details (*),
-          account_manager:user_profiles!clients_assigned_account_manager_id_fkey (full_name, email)
+          account_manager:user_profiles!clients_assigned_account_manager_id_fkey (id, full_name, email),
+          salesperson:user_profiles!clients_assigned_salesperson_id_fkey (id, full_name, email)
         `
         )
         .eq('id', clientId)
@@ -608,11 +615,20 @@ export default function ClientDetailPage() {
             <StatusPill {...(STATUS_MAP[client.status] || STATUS_MAP.prospect)} label={client.status} />
             <StatusPill {...(KYC_MAP[client.kyc_status] || KYC_MAP.pending)} label={`KYC: ${client.kyc_status.replace(/_/g, ' ')}`} />
             <StatusPill {...(RISK_MAP[client.risk_rating] || RISK_MAP.unrated)} label={`Risk: ${client.risk_rating}`} />
+            {client.importance && client.importance !== 'regular' && (
+              <StatusPill {...(IMPORTANCE_MAP[client.importance] || IMPORTANCE_MAP.regular)} label={client.importance.toUpperCase()} />
+            )}
           </div>
           <p className="text-[13px] text-[#717D93]">
             <span className="capitalize">{client.client_type.replace(/_/g, ' ')}</span>
             {' · Managed by '}
             <span className="text-[#42526E]">{client.account_manager?.full_name || 'Unassigned'}</span>
+            {client.salesperson && (
+              <>
+                {' · Sales: '}
+                <span className="text-[#42526E]">{client.salesperson.full_name}</span>
+              </>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -703,6 +719,8 @@ export default function ClientDetailPage() {
                 { label: 'Lifetime Volume', value: client.total_lifetime_volume > 0 ? formatCurrency(client.total_lifetime_volume, 'GBP') : '—', mono: true },
                 { label: 'Total Trades', value: String(client.total_lifetime_deals), mono: true },
                 { label: 'Preferred Pair', value: client.preferred_currency_pair || '—' },
+                { label: 'Importance', value: (client.importance || 'regular').toUpperCase() },
+                { label: 'Salesperson', value: client.salesperson?.full_name || 'Unassigned' },
                 { label: 'Onboarded', value: formatDate(client.onboarding_date) },
                 { label: 'Next Review', value: formatDate(client.next_review_date) },
               ].map((stat) => (
