@@ -38,15 +38,18 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
+  Settings,
 } from 'lucide-react';
 import Link from 'next/link';
 import { formatDate, formatCurrency, formatRate } from '@/lib/format';
 import { cn } from '@/lib/utils';
+import { canEditClientAdmin } from '@/lib/roles';
 import type { Beneficiary, DealStatus, Email, EmailThread, ClientMarginConfig, Conversation, Message, ConversationChannel, KycDocument } from '@/types/database';
 import { BeneficiaryDialog } from '@/components/beneficiary-dialog';
 import { EmailList } from '@/components/email/email-list';
 import { EmailThread as EmailThreadView } from '@/components/email/email-thread';
 import { ComposeDialog } from '@/components/email/compose-dialog';
+import { AdminEditDialog } from '@/components/clients/admin-edit-dialog';
 
 // ─── Pill badge component ───
 function StatusPill({ bg, text, dot, label }: { bg: string; text: string; dot: string; label: string }) {
@@ -318,6 +321,7 @@ export default function ClientDetailPage() {
   const [newMargin, setNewMargin] = useState({ currency_pair: '', margin_percentage: '' });
   const [savingMargin, setSavingMargin] = useState(false);
   const [kycDocuments, setKycDocuments] = useState<KycDocument[]>([]);
+  const [adminEditOpen, setAdminEditOpen] = useState(false);
   const supabase = createClient();
   const { role, profile } = useUser();
 
@@ -640,6 +644,17 @@ export default function ClientDetailPage() {
             <Upload className="h-3.5 w-3.5 mr-1.5" />
             Upload Doc
           </Button>
+          {canEditClientAdmin(role) && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setAdminEditOpen(true)}
+              className="border-[#E2E8F0] text-[#717D93] hover:bg-[#F4F5F7] hover:text-[#253859] h-8 text-[12px]"
+            >
+              <Settings className="h-3.5 w-3.5 mr-1.5" />
+              Edit Settings
+            </Button>
+          )}
         </div>
       </div>
 
@@ -1414,6 +1429,15 @@ export default function ClientDetailPage() {
           </div>
         </div>
       )}
+
+      {/* Admin Edit Dialog */}
+      <AdminEditDialog
+        open={adminEditOpen}
+        onClose={() => setAdminEditOpen(false)}
+        client={client}
+        staffUserId={profile?.id || ''}
+        onSaved={() => window.location.reload()}
+      />
     </div>
   );
 }
