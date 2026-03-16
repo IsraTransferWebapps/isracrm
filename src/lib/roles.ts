@@ -58,3 +58,13 @@ export function canReviewLeads(role: UserRole | null): boolean {
 export function canManageOnboardingConfig(role: UserRole | null): boolean {
   return role === 'management';
 }
+
+// Check if a role can edit client admin fields (importance, salesperson, account manager)
+export function canEditClientAdmin(role: UserRole | null): boolean {
+  return role === 'management';
+}
+
+// Check if a role can approve/reject withdrawals
+export function canApproveWithdrawals(role: UserRole | null): boolean {
+  return role === 'compliance_officer' || role === 'management';
+}
