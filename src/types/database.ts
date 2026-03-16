@@ -48,6 +48,15 @@ export type LedgerEntryType = 'funds_received' | 'funds_sent' | 'fee_charged' | 
 
 export type UserRole = 'account_manager' | 'compliance_officer' | 'management';
 
+// Client importance levels
+export type ClientImportance = 'regular' | 'vip' | 'vvip';
+
+// Receiving banks for deposits
+export type ReceivingBank = 'mizrahi' | 'bank_of_jerusalem' | 'currencycloud';
+
+// Compliance status for withdrawals
+export type WithdrawalComplianceStatus = 'pending' | 'approved' | 'rejected';
+
 // --- ONBOARDING ENUMS ---
 export type OnboardingStep = 'client_type' | 'kyc' | 'beneficiaries' | 'fatca' | 'documents' | 'review' | 'submitted';
 export type OnboardingStatus = 'in_progress' | 'submitted' | 'under_review' | 'approved' | 'rejected' | 'returned';
@@ -308,6 +317,21 @@ export interface LedgerEntry {
   notes: string | null;
   created_by: string | null;
   created_at: string;
+  // Deposit fields
+  receiving_bank: ReceivingBank | null;
+  takbul_number: string | null;
+  sender_bank_name: string | null;
+  sender_account_holder: string | null;
+  sender_iban: string | null;
+  sender_swift: string | null;
+  // Withdrawal fields
+  compliance_status: WithdrawalComplianceStatus | null;
+  compliance_approved_by: string | null;
+  compliance_approved_at: string | null;
+  // Joined fields
+  approver?: {
+    full_name: string;
+  };
 }
 
 export interface AuditLogEntry {
@@ -320,6 +344,24 @@ export interface AuditLogEntry {
   changed_by: string | null;
   ip_address: string | null;
   created_at: string;
+}
+
+// Audit trail entry (entity-level change tracking)
+export interface AuditTrailEntry {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  action: string;
+  old_value: string | null;
+  new_value: string | null;
+  performed_by: string | null;
+  performed_at: string;
+  notes: string | null;
+  // Joined fields
+  performer?: {
+    full_name: string;
+    email: string;
+  };
 }
 
 export interface UserProfile {
